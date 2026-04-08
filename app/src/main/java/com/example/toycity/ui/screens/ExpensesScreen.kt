@@ -40,10 +40,8 @@ fun ExpensesScreen(
 
     Scaffold(
         floatingActionButton = {
-            if (type != "All") {
-                FloatingActionButton(onClick = { showAddDialog = true }) {
-                    Icon(Icons.Default.Add, contentDescription = "Add $type Expense")
-                }
+            FloatingActionButton(onClick = { showAddDialog = true }) {
+                Icon(Icons.Default.Add, contentDescription = "Add Expense")
             }
         }
     ) { padding ->
@@ -103,7 +101,7 @@ fun ExpensesScreen(
                 }
                 
                 transactions.filter { 
-                    !it.isCashIn && (type == "All" || it.category == type)
+                    !it.isCashIn && (type == "All" || it.category.equals(type, ignoreCase = true))
                 }.sortedByDescending { it.date }
             }
 
@@ -164,11 +162,17 @@ fun ExpensesScreen(
     }
 
     if (showAddDialog) {
+        val initialType = when (type) {
+            "Operational" -> "Operational"
+            "Restock" -> "Restock"
+            else -> "Operational"
+        }
         AddExpenseDialog(
-            type = type,
+            type = initialType,
+            isAllView = type == "All",
             onDismiss = { showAddDialog = false },
-            onConfirm = { amount, note, timestamp ->
-                viewModel.addCashTransaction(amount, note, false, timestamp, type)
+            onConfirm = { amount, note, timestamp, selectedType ->
+                viewModel.addCashTransaction(amount, note, false, timestamp, selectedType)
                 showAddDialog = false
             }
         )
@@ -177,9 +181,15 @@ fun ExpensesScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddExpenseDialog(type: String, onDismiss: () -> Unit, onConfirm: (Double, String, Long) -> Unit) {
+fun AddExpenseDialog(
+    type: String, 
+    isAllView: Boolean = false,
+    onDismiss: () -> Unit, 
+    onConfirm: (Double, String, Long, String) -> Unit
+) {
     var amount by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
+    var selectedType by remember { mutableStateOf(type) }
     var selectedDate by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDate)
@@ -203,9 +213,30 @@ fun AddExpenseDialog(type: String, onDismiss: () -> Unit, onConfirm: (Double, St
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add $type Expense") },
+        title = { Text("Add Expense") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (isAllView) {
+                    Text("Category", style = MaterialTheme.typography.labelMedium)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = selectedType == "Operational",
+                            onClick = { selectedType = "Operational" },
+                            label = { Text("Operational") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        FilterChip(
+                            selected = selectedType == "Restock",
+                            onClick = { selectedType = "Restock" },
+                            label = { Text("Restock") },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
                 OutlinedTextField(
                     value = amount,
                     onValueChange = { if (it.isEmpty() || it.replace(".", "").all { c -> c.isDigit() }) amount = it },
@@ -247,7 +278,7 @@ fun AddExpenseDialog(type: String, onDismiss: () -> Unit, onConfirm: (Double, St
             Button(
                 onClick = { 
                     val amt = amount.toDoubleOrNull() ?: 0.0
-                    if (amt > 0 && note.isNotEmpty()) onConfirm(amt, note, selectedDate)
+                    if (amt > 0 && note.isNotEmpty()) onConfirm(amt, note, selectedDate, selectedType)
                 },
                 enabled = amount.isNotEmpty() && note.isNotEmpty()
             ) { Text("Add Expense") }

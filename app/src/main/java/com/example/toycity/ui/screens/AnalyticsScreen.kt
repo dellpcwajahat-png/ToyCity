@@ -36,7 +36,7 @@ fun AnalyticsScreen(
     val activeRecords = allRecords.filter { it.totalSales > 0 }
     
     val allTimeSales = allRecords.sumOf { it.totalSales }
-    val allTimeExpenses = allRecords.sumOf { it.totalExpenses }
+    val allTimeExpenses = allRecords.sumOf { it.totalExpenses + it.inventoryData.cogs }
     val allTimeCOGS = allRecords.sumOf { it.inventoryData.cogs }
     val allTimeRestock = allRecords.sumOf { it.inventoryData.restockInvestment }
     val allTimeNetProfit = allRecords.sumOf { it.netProfit }

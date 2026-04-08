@@ -12,10 +12,7 @@ data class FinancialRecord(
     val expenseCategories: Map<String, Double> = emptyMap(), // Categorized expenses
     val customerReceivables: Double = 0.0,
     val inventoryData: InventoryData = InventoryData(),
-    val loans: List<Loan> = listOf(
-        Loan(lenderName = "Lender M"),
-        Loan(lenderName = "Lender W")
-    ),
+    val loans: List<Loan> = emptyList(),
     val cashTransactions: List<CashTransaction> = emptyList(), // Daily Cash In/Out
     val sales: List<Sale> = emptyList(), // List of all sales/receipts
     val lastUpdated: Long = System.currentTimeMillis()
@@ -26,8 +23,8 @@ data class FinancialRecord(
             if (id.isEmpty()) return 30
             return try {
                 val parts = id.split("-")
-                val year = parts[0].toInt()
-                val month = parts[1].toInt() - 1 // Calendar months are 0-indexed
+                val month = parts[0].toInt() - 1 // MM is first part
+                val year = parts[1].toInt()      // YYYY is second part
                 val calendar = java.util.Calendar.getInstance()
                 calendar.set(year, month, 1)
                 calendar.getActualMaximum(java.util.Calendar.DAY_OF_MONTH)
@@ -45,25 +42,36 @@ data class FinancialRecord(
         get() = if (sales.isNotEmpty()) sales.sumOf { it.totalAmount } else totalSales
 
     // 2. Total Expenses (Categories + Manual Cash Out + Operating Expenses)
+    // Exclude Restock and Loan Repayments from general "Expenses" to avoid double-counting in balance formulas
     val totalExpenses: Double
-        get() = operatingExpenses + expenseCategories.values.sum() + cashTransactions.filter { !it.isCashIn }.sumOf { it.amount }
+        get() = operatingExpenses + expenseCategories.values.sum() + 
+                cashTransactions.filter { 
+                    !it.isCashIn && (it.category.equals("Other", ignoreCase = true) || it.category.isEmpty()) 
+                }.sumOf { it.amount }
 
     // 3. Net Profit = Sales - Expenses - COGS
     val netProfit: Double
         get() = salesTotal - totalExpenses - inventoryData.cogs
+
+    // Total Debt = Sum of (Principal - Repayment)
+    val totalDebt: Double
+        get() = loans.sumOf { it.principalAmount - it.repaymentToDate }
 
     // Profit Margin (%)
     val profitMargin: Double
         get() = if (salesTotal > 0) (netProfit / salesTotal) * 100 else 0.0
 
     // 4. Cash in Drawer (Cash in Hand)
-    // Formula: Initial Cash + Sales + Cash In - Expenses - Restock - Receivables - Loan Repayments
+    // Formula: Initial Cash + Sales + Cash In - Expenses - Restock - Loan Repayments
     val cashInDrawer: Double
         get() {
             val totalCashInTransactions = cashTransactions.filter { it.isCashIn }.sumOf { it.amount }
-            val totalLoanRepayments = loans.sumOf { it.repaymentToDate }
+            val loanRepayments = cashTransactions.filter { 
+                !it.isCashIn && it.category.equals("Loan Repayment", ignoreCase = true) 
+            }.sumOf { it.amount }
+            
             val result = startingCash + salesTotal + totalCashInTransactions - totalExpenses - 
-                   inventoryData.restockInvestment - customerReceivables - totalLoanRepayments
+                         inventoryData.restockInvestment - loanRepayments
             return if (result < 0.0001 && result > -0.0001) 0.0 else result
         }
 }

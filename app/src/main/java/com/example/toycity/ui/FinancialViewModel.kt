@@ -26,7 +26,7 @@ class FinancialViewModel : ViewModel() {
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val _isAllTimeView = MutableStateFlow(true)
+    private val _isAllTimeView = MutableStateFlow(false)
     val isAllTimeView: StateFlow<Boolean> = _isAllTimeView.asStateFlow()
 
     private var currentUserId: String = ""
@@ -50,9 +50,10 @@ class FinancialViewModel : ViewModel() {
                     val prevRecord = repository.getRecord(userId, prevMonthId)
                     val startingCash = prevRecord?.cashInDrawer ?: 0.0
                     
-                    // Only update if we still don't have a record (avoid race conditions)
-                    if (_uiState.value.id != monthId || _uiState.value.userId != userId || record == null) {
-                        _uiState.value = FinancialRecord(id = monthId, userId = userId, startingCash = startingCash)
+                    _uiState.update { current ->
+                        if (current.id != monthId) {
+                            FinancialRecord(id = monthId, userId = userId, startingCash = startingCash)
+                        } else current
                     }
                 } else {
                     _uiState.value = record
@@ -192,16 +193,82 @@ class FinancialViewModel : ViewModel() {
         triggerManualSave()
     }
 
-    fun updateLoanDueDate(index: Int, timestamp: Long?) {
+    fun addLender(name: String) {
         _uiState.update { state ->
-            val updatedLoans = state.loans.toMutableList()
-            updatedLoans[index] = updatedLoans[index].copy(dueDate = timestamp)
+            val newLender = Loan(lenderName = name)
+            state.copy(loans = state.loans + newLender)
+        }
+        triggerManualSave()
+    }
+
+    fun deleteLender(name: String) {
+        _uiState.update { state ->
+            state.copy(loans = state.loans.filter { it.lenderName != name })
+        }
+        triggerManualSave()
+    }
+
+    fun addLoanTransaction(lenderName: String, amount: Double, isRepayment: Boolean, date: Long, note: String = "") {
+        val transactionMonthId = Formatter.formatMonth(java.util.Date(date))
+        
+        _uiState.update { state ->
+            val updatedLoans = state.loans.map { loan ->
+                if (loan.lenderName == lenderName) {
+                    if (isRepayment) {
+                        loan.copy(repaymentToDate = loan.repaymentToDate + amount)
+                    } else {
+                        loan.copy(principalAmount = loan.principalAmount + amount)
+                    }
+                } else loan
+            }
+
+            val category = if (isRepayment) "Loan Repayment" else "Loan Received"
+            val fullNote = if (note.isNotEmpty()) "$lenderName: $note" else lenderName
+            
+            val newTransaction = com.example.toycity.data.CashTransaction(
+                id = java.util.UUID.randomUUID().toString(),
+                amount = amount,
+                note = fullNote,
+                isCashIn = !isRepayment, // Loan Received is Cash In, Repayment is Cash Out
+                date = date,
+                category = category
+            )
+
+            state.copy(
+                loans = updatedLoans,
+                cashTransactions = if (state.id == transactionMonthId) state.cashTransactions + newTransaction else state.cashTransactions
+            )
+        }
+        triggerManualSave()
+    }
+
+    fun updateLoanDueDate(lenderName: String, timestamp: Long?) {
+        _uiState.update { state ->
+            val updatedLoans = state.loans.map { 
+                if (it.lenderName == lenderName) it.copy(dueDate = timestamp) else it 
+            }
             state.copy(loans = updatedLoans)
         }
     }
 
+    fun resetMonthlyLedger() {
+        _uiState.update { state ->
+            state.copy(
+                startingCash = 0.0,
+                totalSales = 0.0,
+                operatingExpenses = 0.0,
+                expenseCategories = emptyMap(),
+                sales = emptyList(),
+                cashTransactions = emptyList(),
+                inventoryData = state.inventoryData.copy(restockInvestment = 0.0, cogs = 0.0)
+            )
+        }
+        triggerManualSave()
+    }
+
     fun updateStartingCash(value: Double) {
         _uiState.update { it.copy(startingCash = value) }
+        triggerManualSave()
     }
 
     fun updateTotalSales(value: Double) {
@@ -224,42 +291,68 @@ class FinancialViewModel : ViewModel() {
         _uiState.update { it.copy(inventoryData = it.inventoryData.copy(cogs = value)) }
     }
 
-    fun updateLoanPrincipal(index: Int, value: Double) {
+    fun updateLoanPrincipal(lenderName: String, value: Double) {
         _uiState.update { state ->
-            val updatedLoans = state.loans.toMutableList()
-            updatedLoans[index] = updatedLoans[index].copy(principalAmount = value)
+            val updatedLoans = state.loans.map {
+                if (it.lenderName == lenderName) it.copy(principalAmount = value) else it
+            }
             state.copy(loans = updatedLoans)
         }
     }
 
-    fun updateLoanRepayment(index: Int, value: Double) {
+    fun updateLoanRepayment(lenderName: String, value: Double) {
         _uiState.update { state ->
-            val updatedLoans = state.loans.toMutableList()
-            updatedLoans[index] = updatedLoans[index].copy(repaymentToDate = value)
+            val updatedLoans = state.loans.map {
+                if (it.lenderName == lenderName) it.copy(repaymentToDate = value) else it
+            }
             state.copy(loans = updatedLoans)
         }
     }
 
     fun addCashTransaction(amount: Double, note: String, isCashIn: Boolean, date: Long, category: String = "Operational") {
         val transactionMonthId = Formatter.formatMonth(java.util.Date(date))
-        
-        // Use currentUserId since we are adding a transaction for the current user
-        val userId = currentUserId.ifEmpty { "SHARED_STORE_DATA" } // Fallback to default if empty
+        val userId = currentUserId.ifEmpty { "SHARED_STORE_DATA" }
 
-        if (transactionMonthId == currentMonthId) {
-            _uiState.update { state ->
-                val newTransaction = com.example.toycity.data.CashTransaction(
-                    id = java.util.UUID.randomUUID().toString(),
-                    amount = amount,
-                    note = note,
-                    isCashIn = isCashIn,
-                    date = date,
-                    category = category
-                )
-                state.copy(cashTransactions = state.cashTransactions + newTransaction)
-            }
-            triggerManualSave()
-        } else {
+        _uiState.update { state ->
+            val newTransaction = com.example.toycity.data.CashTransaction(
+                id = java.util.UUID.randomUUID().toString(),
+                amount = amount,
+                note = note,
+                isCashIn = isCashIn,
+                date = date,
+                category = category
+            )
+            
+            // If it's an Operational Expense, automatically update the operatingExpenses field
+            val updatedOperatingExpenses = if (state.id == transactionMonthId && !isCashIn && category == "Operational") {
+                state.operatingExpenses + amount
+            } else state.operatingExpenses
+
+            // If it's a Restock Cash-Out, automatically update the investment field
+            val updatedInventory = if (state.id == transactionMonthId && !isCashIn && category == "Restock") {
+                state.inventoryData.copy(restockInvestment = state.inventoryData.restockInvestment + amount)
+            } else state.inventoryData
+
+            // If it's a Loan Repayment, try to match by note name
+            val updatedLoans = if (state.id == transactionMonthId && !isCashIn && category == "Loan Repayment") {
+                state.loans.map { loan ->
+                    if (note.contains(loan.lenderName, ignoreCase = true)) {
+                        loan.copy(repaymentToDate = loan.repaymentToDate + amount)
+                    } else loan
+                }
+            } else state.loans
+
+            state.copy(
+                cashTransactions = if (state.id == transactionMonthId) state.cashTransactions + newTransaction else state.cashTransactions,
+                operatingExpenses = updatedOperatingExpenses,
+                inventoryData = updatedInventory,
+                loans = updatedLoans
+            )
+        }
+        triggerManualSave()
+
+        // Handle off-month transactions separately if needed (rare for mobile entry)
+        if (transactionMonthId != currentMonthId) {
             viewModelScope.launch {
                 try {
                     val targetRecord = repository.getRecord(userId, transactionMonthId) 
@@ -273,9 +366,28 @@ class FinancialViewModel : ViewModel() {
                         date = date,
                         category = category
                     )
+
+                    val updatedOperatingExpenses = if (!isCashIn && category == "Operational") {
+                        targetRecord.operatingExpenses + amount
+                    } else targetRecord.operatingExpenses
+
+                    val updatedInventory = if (!isCashIn && category == "Restock") {
+                        targetRecord.inventoryData.copy(restockInvestment = targetRecord.inventoryData.restockInvestment + amount)
+                    } else targetRecord.inventoryData
+
+                    val updatedLoans = if (!isCashIn && category == "Loan Repayment") {
+                        targetRecord.loans.map { loan ->
+                            if (note.contains(loan.lenderName, ignoreCase = true)) {
+                                loan.copy(repaymentToDate = loan.repaymentToDate + amount)
+                            } else loan
+                        }
+                    } else targetRecord.loans
                     
                     val updatedRecord = targetRecord.copy(
-                        cashTransactions = targetRecord.cashTransactions + newTransaction
+                        cashTransactions = targetRecord.cashTransactions + newTransaction,
+                        operatingExpenses = updatedOperatingExpenses,
+                        inventoryData = updatedInventory,
+                        loans = updatedLoans
                     )
                     repository.saveRecord(updatedRecord)
                 } catch (e: Exception) {
@@ -285,11 +397,79 @@ class FinancialViewModel : ViewModel() {
         }
     }
 
+    fun updateCashTransaction(oldTransaction: com.example.toycity.data.CashTransaction, newAmount: Double, newNote: String, newDate: Long) {
+        val oldMonthId = Formatter.formatMonth(java.util.Date(oldTransaction.date))
+        val newMonthId = Formatter.formatMonth(java.util.Date(newDate))
+        
+        if (oldMonthId == newMonthId) {
+            _uiState.update { state ->
+                val updatedTransactions = state.cashTransactions.map {
+                    if (it.id == oldTransaction.id) {
+                        it.copy(amount = newAmount, note = newNote, date = newDate)
+                    } else it
+                }
+                
+                var updatedOperatingExpenses = state.operatingExpenses
+                if (!oldTransaction.isCashIn && oldTransaction.category == "Operational") {
+                    updatedOperatingExpenses = updatedOperatingExpenses - oldTransaction.amount + newAmount
+                }
+                
+                var updatedInventory = state.inventoryData
+                if (!oldTransaction.isCashIn && oldTransaction.category == "Restock") {
+                    updatedInventory = updatedInventory.copy(restockInvestment = updatedInventory.restockInvestment - oldTransaction.amount + newAmount)
+                }
+                
+                var updatedLoans = state.loans
+                if (!oldTransaction.isCashIn && oldTransaction.category == "Loan Repayment") {
+                    updatedLoans = updatedLoans.map { loan ->
+                        if (oldTransaction.note.contains(loan.lenderName, ignoreCase = true)) {
+                            loan.copy(repaymentToDate = loan.repaymentToDate - oldTransaction.amount + newAmount)
+                        } else loan
+                    }
+                }
+                
+                state.copy(
+                    cashTransactions = updatedTransactions,
+                    operatingExpenses = updatedOperatingExpenses,
+                    inventoryData = updatedInventory,
+                    loans = updatedLoans
+                )
+            }
+            triggerManualSave()
+        } else {
+            // If month changed, remove from old and add to new
+            removeCashTransaction(oldTransaction.id)
+            addCashTransaction(newAmount, newNote, oldTransaction.isCashIn, newDate, oldTransaction.category)
+        }
+    }
+
     fun removeCashTransaction(transactionId: String) {
         val currentTransaction = _uiState.value.cashTransactions.find { it.id == transactionId }
         if (currentTransaction != null) {
             _uiState.update { state ->
-                state.copy(cashTransactions = state.cashTransactions.filter { it.id != transactionId })
+                // Revert any associated operational expense, restock or loan repayment
+                val updatedOperatingExpenses = if (!currentTransaction.isCashIn && currentTransaction.category == "Operational") {
+                    (state.operatingExpenses - currentTransaction.amount).coerceAtLeast(0.0)
+                } else state.operatingExpenses
+
+                val updatedInventory = if (!currentTransaction.isCashIn && currentTransaction.category == "Restock") {
+                    state.inventoryData.copy(restockInvestment = (state.inventoryData.restockInvestment - currentTransaction.amount).coerceAtLeast(0.0))
+                } else state.inventoryData
+
+                val updatedLoans = if (!currentTransaction.isCashIn && currentTransaction.category == "Loan Repayment") {
+                    state.loans.map { loan ->
+                        if (currentTransaction.note.contains(loan.lenderName, ignoreCase = true)) {
+                            loan.copy(repaymentToDate = (loan.repaymentToDate - currentTransaction.amount).coerceAtLeast(0.0))
+                        } else loan
+                    }
+                } else state.loans
+
+                state.copy(
+                    cashTransactions = state.cashTransactions.filter { it.id != transactionId },
+                    operatingExpenses = updatedOperatingExpenses,
+                    inventoryData = updatedInventory,
+                    loans = updatedLoans
+                )
             }
             triggerManualSave()
         } else {
@@ -297,8 +477,29 @@ class FinancialViewModel : ViewModel() {
                 val records = _allRecordsRaw.value
                 val recordWithTransaction = records.find { it.cashTransactions.any { t -> t.id == transactionId } }
                 if (recordWithTransaction != null) {
+                    val transactionToRemove = recordWithTransaction.cashTransactions.find { it.id == transactionId }!!
+                    
+                    val updatedOperatingExpenses = if (!transactionToRemove.isCashIn && transactionToRemove.category == "Operational") {
+                        (recordWithTransaction.operatingExpenses - transactionToRemove.amount).coerceAtLeast(0.0)
+                    } else recordWithTransaction.operatingExpenses
+
+                    val updatedInventory = if (!transactionToRemove.isCashIn && transactionToRemove.category == "Restock") {
+                        recordWithTransaction.inventoryData.copy(restockInvestment = (recordWithTransaction.inventoryData.restockInvestment - transactionToRemove.amount).coerceAtLeast(0.0))
+                    } else recordWithTransaction.inventoryData
+
+                    val updatedLoans = if (!transactionToRemove.isCashIn && transactionToRemove.category == "Loan Repayment") {
+                        recordWithTransaction.loans.map { loan ->
+                            if (transactionToRemove.note.contains(loan.lenderName, ignoreCase = true)) {
+                                loan.copy(repaymentToDate = (loan.repaymentToDate - transactionToRemove.amount).coerceAtLeast(0.0))
+                            } else loan
+                        }
+                    } else recordWithTransaction.loans
+
                     val updatedRecord = recordWithTransaction.copy(
-                        cashTransactions = recordWithTransaction.cashTransactions.filter { it.id != transactionId }
+                        cashTransactions = recordWithTransaction.cashTransactions.filter { it.id != transactionId },
+                        operatingExpenses = updatedOperatingExpenses,
+                        inventoryData = updatedInventory,
+                        loans = updatedLoans
                     )
                     repository.saveRecord(updatedRecord)
                 }

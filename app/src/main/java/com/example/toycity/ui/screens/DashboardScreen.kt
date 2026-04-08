@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -71,6 +72,18 @@ fun DashboardScreen(
         set(Calendar.MILLISECOND, 0)
     }.timeInMillis
 
+    val firstOfCurrentYear = Calendar.getInstance().apply {
+        set(Calendar.MONTH, Calendar.JANUARY)
+        set(Calendar.DAY_OF_MONTH, 1)
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+    
+    val currentYear = Calendar.getInstance().get(Calendar.YEAR)
+    val dayOfYear = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
+
     // Extract metrics from actual Sales data across allRecords
     fun getMetricsForPeriod(startTime: Long, endTime: Long? = null): Triple<Double, Double, Double> {
         var salesTotal = 0.0
@@ -111,11 +124,12 @@ fun DashboardScreen(
         return Triple(salesTotal, profitTotal, expensesTotal)
     }
 
-    val metrics = remember(allRecords, today, yesterday, sevenDaysAgo, firstOfCurrentMonth) {
+    val metrics = remember(allRecords, today, yesterday, sevenDaysAgo, firstOfCurrentMonth, firstOfCurrentYear) {
         val (todayS, todayP, todayE) = getMetricsForPeriod(today)
         val (yesterdayS, yesterdayP, _) = getMetricsForPeriod(yesterday, today)
         val (last7DaysS, last7DaysP, _) = getMetricsForPeriod(sevenDaysAgo)
         val (monthS, monthP, monthE) = getMetricsForPeriod(firstOfCurrentMonth)
+        val (yearS, _, _) = getMetricsForPeriod(firstOfCurrentYear)
         
         // Prepare data for the 7-day graph
         val graphData = (0..6).map { dayOffset ->
@@ -141,15 +155,17 @@ fun DashboardScreen(
             val monthSales = monthS
             val monthProfit = monthP
             val monthExpenses = monthE
+            val yearSales = yearS
             val graphData = graphData
         }
     }
 
     // Inventory and Financial Summary Stats
     val customerBalance = uiState.customerReceivables
-    val totalDebt = uiState.loans.sumOf { it.principalAmount - it.repaymentToDate }
+    val totalDebt = uiState.totalDebt
     
     val totalProducts = uiState.inventoryData.items.size
+    val inStockProducts = uiState.inventoryData.items.count { it.quantity > 0 }
     val outOfStockProducts = uiState.inventoryData.items.count { it.quantity <= 0 }
     val stockValueNoProfit = uiState.inventoryData.items.sumOf { it.costPrice * it.quantity }
     val stockValueWithProfit = uiState.inventoryData.items.sumOf { it.sellingPrice * it.quantity }
@@ -200,32 +216,31 @@ fun DashboardScreen(
         // Sales Trend Graph
         SalesGraphCard(data = metrics.graphData)
 
-    // Financial & Inventory Summary Boxes
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // Row 1: Receivables, Debt, Today's Expenses
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            SummaryBox(
-                modifier = Modifier.weight(1f),
-                label = "Cust. Balance",
-                value = Formatter.formatCurrency(customerBalance),
-                color = MaterialTheme.colorScheme.primary
-            )
-            SummaryBox(
-                modifier = Modifier.weight(1f),
-                label = "Total Debt",
-                value = Formatter.formatCurrency(totalDebt),
-                color = Color(0xFFC62828)
-            )
-            SummaryBox(
-                modifier = Modifier.weight(1f),
-                label = "Today Exp.",
-                value = Formatter.formatCurrency(metrics.todayExpenses),
-                color = Color(0xFFE65100)
-            )
-        }
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Row 1: Cash in Drawer, Receivables, Debt
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                SummaryBox(
+                    modifier = Modifier.weight(1f),
+                    label = "$currentYear Avg Sale",
+                    value = Formatter.formatCurrency(metrics.yearSales / dayOfYear),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                SummaryBox(
+                    modifier = Modifier.weight(1f),
+                    label = "Cust. Balance",
+                    value = Formatter.formatCurrency(customerBalance),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                SummaryBox(
+                    modifier = Modifier.weight(1f),
+                    label = "Total Debt",
+                    value = Formatter.formatCurrency(totalDebt),
+                    color = Color(0xFFC62828)
+                )
+            }
 
             // Row 2: Stock Value (Cost), Stock Value (Sell), Total Products
             Row(
@@ -265,8 +280,8 @@ fun DashboardScreen(
                 )
                 SummaryBox(
                     modifier = Modifier.weight(1f),
-                    label = "Daily Avg Sale",
-                    value = Formatter.formatCurrency(uiState.dailyAverageSale),
+                    label = "In Stock",
+                    value = inStockProducts.toString(),
                     color = MaterialTheme.colorScheme.primary
                 )
                 SummaryBox(
@@ -325,11 +340,9 @@ fun MainPerformanceCard(
     expenses: Double,
     cashInDrawer: Double
 ) {
-    val actualCash = remember(cashInDrawer) { cashInDrawer }
-
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(32.dp),
+        shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer
         ),
@@ -337,113 +350,88 @@ fun MainPerformanceCard(
     ) {
         Column(
             modifier = Modifier
-                .padding(24.dp)
+                .padding(20.dp)
                 .fillMaxWidth()
         ) {
-            Text(
-                text = "Daily Performance Summary",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            
-            Spacer(modifier = Modifier.height(20.dp))
-            
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
                     Text(
-                        text = "Total sale",
+                        text = "Today's Sale",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Text(
                         text = Formatter.formatCurrency(sales),
-                        style = MaterialTheme.typography.headlineMedium,
+                        style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1
                     )
                 }
-            }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                // Profit Card
+                
+                // Moved profit here to be more visible and save vertical space
                 Surface(
-                    modifier = Modifier.weight(1f),
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    color = Color(0xFF2E7D32).copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), horizontalAlignment = Alignment.End) {
+                        Text("Today's Profit", style = androidx.compose.ui.text.TextStyle(fontSize = 10.sp), color = Color(0xFF2E7D32))
                         Text(
-                            text = "Net Profit",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
-                        Text(
-                            text = Formatter.formatCurrency(profit),
-                            style = MaterialTheme.typography.titleSmall,
+                            Formatter.formatCurrency(profit),
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF2E7D32),
                             maxLines = 1
                         )
                     }
                 }
-                
-                // Expenses Card
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Simplified Expenses Card
                 Surface(
                     modifier = Modifier.weight(1f),
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = "Expenses",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
-                        Text(
-                            text = Formatter.formatCurrency(expenses),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFC62828),
-                            maxLines = 1
-                        )
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(Color(0xFFC62828)))
+                        Column {
+                            Text("Expenses", style = androidx.compose.ui.text.TextStyle(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(Formatter.formatCurrency(expenses), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                        }
                     }
                 }
-
-                // Cash in Drawal Card
+                
+                // Cash Drawer (replaces Net Cash)
                 Surface(
                     modifier = Modifier.weight(1f),
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = "Cash in Drawer",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
-                        Text(
-                            text = Formatter.formatCurrency(actualCash),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1
-                        )
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF00796B)))
+                        Column {
+                            Text("Cash Drawer", style = androidx.compose.ui.text.TextStyle(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(Formatter.formatCurrency(cashInDrawer), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                        }
                     }
                 }
             }
@@ -567,49 +555,57 @@ fun DashboardMetricItem(
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
         Column(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(10.dp)
                 .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
             )
             
             Column {
                 Text(
                     text = "Sale",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = androidx.compose.ui.text.TextStyle(fontSize = 10.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
                 )
                 Text(
-                    text = Formatter.formatCurrency(sales),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold
+                    text = Formatter.formatCurrency(sales).replace("PKR", "Rs"),
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
             }
             Column {
                 Text(
                     text = "Profit",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = androidx.compose.ui.text.TextStyle(fontSize = 10.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
                 )
                 Text(
-                    text = Formatter.formatCurrency(profit),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = if (profit >= 0) Color(0xFF2E7D32) else Color(0xFFC62828)
+                    text = Formatter.formatCurrency(profit).replace("PKR", "Rs"),
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                    fontWeight = FontWeight.ExtraBold,
+                    color = if (profit >= 0) Color(0xFF2E7D32) else Color(0xFFC62828),
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
             }
         }

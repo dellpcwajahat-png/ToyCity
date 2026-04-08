@@ -11,7 +11,7 @@ object Formatter {
 
     fun formatCurrency(value: Double?): String {
         val amount = if (value == null || value.isNaN() || value.isInfinite()) 0.0 else value
-        return "PKR ${numberFormat.format(amount)}"
+        return "Rs ${numberFormat.format(amount)}"
     }
 
     fun formatDate(date: Date): String {

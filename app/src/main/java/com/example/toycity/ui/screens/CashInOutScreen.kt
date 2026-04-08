@@ -27,11 +27,29 @@ import java.util.*
 fun CashInOutScreen(viewModel: FinancialViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
+    var showResetDialog by remember { mutableStateOf(false) }
 
-    val totalCashIn = uiState.cashTransactions.filter { it.isCashIn }.sumOf { it.amount }
-    val totalCashOut = uiState.cashTransactions.filter { !it.isCashIn }.sumOf { it.amount }
+    val displayTransactions = remember(uiState.cashTransactions) {
+        uiState.cashTransactions.filter { 
+            val cat = it.category.lowercase().trim()
+            it.isCashIn || (cat != "operational" && cat != "restock")
+        }.sortedByDescending { it.date }
+    }
+
+    val totalCashIn = displayTransactions.filter { it.isCashIn }.sumOf { it.amount }
+    val totalCashOut = displayTransactions.filter { !it.isCashIn }.sumOf { it.amount }
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Cash Ledger") },
+                actions = {
+                    IconButton(onClick = { showResetDialog = true }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Reset All", tint = MaterialTheme.colorScheme.error)
+                    }
+                }
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddDialog = true }) {
                 Icon(Icons.Default.Add, contentDescription = "Add Transaction")
@@ -45,14 +63,14 @@ fun CashInOutScreen(viewModel: FinancialViewModel = viewModel()) {
                 onValueChange = { 
                     val value = it.toDoubleOrNull() ?: 0.0
                     viewModel.updateStartingCash(value)
-                    viewModel.triggerManualSave()
                 },
-                label = { Text("Initial Cash / Starting Balance") },
+                label = { Text("Opening Balance (Cash in Hand)") },
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                leadingIcon = { Icon(Icons.Default.Wallet, contentDescription = null) },
+                leadingIcon = { Icon(Icons.Default.AccountBalanceWallet, contentDescription = null) },
                 shape = RoundedCornerShape(12.dp),
-                singleLine = true
+                singleLine = true,
+                supportingText = { Text("Setting this to 0 resets the starting point for this month.") }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -64,7 +82,7 @@ fun CashInOutScreen(viewModel: FinancialViewModel = viewModel()) {
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Total Cash In", style = MaterialTheme.typography.labelMedium)
+                        Text("General Cash In", style = MaterialTheme.typography.labelMedium)
                         Text(Formatter.formatCurrency(totalCashIn), style = MaterialTheme.typography.titleLarge, color = Color(0xFF2E7D32))
                     }
                 }
@@ -73,7 +91,7 @@ fun CashInOutScreen(viewModel: FinancialViewModel = viewModel()) {
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Total Cash Out", style = MaterialTheme.typography.labelMedium)
+                        Text("General Cash Out", style = MaterialTheme.typography.labelMedium)
                         Text(Formatter.formatCurrency(totalCashOut), style = MaterialTheme.typography.titleLarge, color = Color(0xFFC62828))
                     }
                 }
@@ -81,12 +99,24 @@ fun CashInOutScreen(viewModel: FinancialViewModel = viewModel()) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Text("Transactions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("Cash Ledger (Excl. Op/Restock)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             
             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(uiState.cashTransactions.sortedByDescending { it.date }) { transaction ->
+                items(displayTransactions) { transaction ->
                     ListItem(
-                        headlineContent = { Text(transaction.note) },
+                        headlineContent = { 
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(transaction.note)
+                                if (!transaction.isCashIn) {
+                                    Badge(
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        modifier = Modifier.padding(start = 8.dp)
+                                    ) {
+                                        Text(transaction.category, fontSize = 9.sp)
+                                    }
+                                }
+                            }
+                        },
                         supportingContent = { Text(Formatter.formatDate(Date(transaction.date))) },
                         trailingContent = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -114,6 +144,28 @@ fun CashInOutScreen(viewModel: FinancialViewModel = viewModel()) {
         }
     }
 
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = { Text("Reset Monthly Records?") },
+            text = { Text("This will set Starting Cash, Sales, and Expenses for THIS month back to 0. This action cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.resetMonthlyLedger()
+                        showResetDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Reset Everything")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
     if (showAddDialog) {
         CashTransactionDialog(
             onDismiss = { showAddDialog = false },
@@ -137,8 +189,8 @@ fun CashTransactionDialog(
     var selectedDate by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
 
-    val categories = listOf("Operational", "Restock", "Loan Repayment", "Other")
-    var selectedCategory by remember { mutableStateOf("Operational") }
+    val categories = listOf("Loan Repayment", "Other")
+    var selectedCategory by remember { mutableStateOf("Loan Repayment") }
 
     AlertDialog(
         onDismissRequest = onDismiss,

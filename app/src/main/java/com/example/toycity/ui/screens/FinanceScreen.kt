@@ -1,5 +1,6 @@
 package com.example.toycity.ui.screens
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -39,7 +40,7 @@ import java.util.*
 @Composable
 fun FinanceScreen(
     viewModel: FinancialViewModel = viewModel(),
-    modifier: Modifier = Modifier
+    @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val allRecords by viewModel.allRecords.collectAsState()

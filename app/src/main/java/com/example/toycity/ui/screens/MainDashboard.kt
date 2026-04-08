@@ -50,7 +50,7 @@ fun MainDashboard(
     viewModel: FinancialViewModel = viewModel(),
     authViewModel: AuthViewModel = viewModel()
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) } // 0: Home, 1: Summary, 2: Top Selling, 3: Stock, 4: Expenses, 5: Categories, 6: Customers, 7: Cash, 8: Counter, 9: Settings, 10: Ledger
+    var selectedTab by remember { mutableIntStateOf(0) } // 0: Home, 1: Summary, 2: Top Selling, 3: Stock, 4: Expenses, 5: Categories, 6: Customers, 8: Counter, 9: Settings, 10: Ledger, 11: Suppliers, 12: Op Expenses, 13: Restock Expenses, 14: Cash in hand, 15: Cash In/Out
     var currentMonth by remember { mutableStateOf(Formatter.formatMonth(Date())) }
     val user by authViewModel.user.collectAsState()
     val displayName by authViewModel.displayName.collectAsState()
@@ -91,102 +91,115 @@ fun MainDashboard(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    "Management & Insights",
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                HorizontalDivider()
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        "Management & Insights",
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    HorizontalDivider()
 
-                NavigationDrawerItem(
-                    label = { Text("Business Summary") },
-                    selected = selectedTab == 1,
-                    onClick = { 
-                        selectedTab = 1
-                        scope.launch { drawerState.close() }
-                    },
-                    icon = { Icon(Icons.Default.Assessment, contentDescription = null) },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
+                    NavigationDrawerItem(
+                        label = { Text("Business Summary") },
+                        selected = selectedTab == 1,
+                        onClick = { 
+                            selectedTab = 1
+                            scope.launch { drawerState.close() }
+                        },
+                        icon = { Icon(Icons.Default.Assessment, contentDescription = null) },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
 
-                NavigationDrawerItem(
-                    label = { Text("Top Selling") },
-                    selected = selectedTab == 2,
-                    onClick = { 
-                        selectedTab = 2
-                        scope.launch { drawerState.close() }
-                    },
-                    icon = { Icon(Icons.Default.Star, contentDescription = null) },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
+                    NavigationDrawerItem(
+                        label = { Text("Top Selling") },
+                        selected = selectedTab == 2,
+                        onClick = { 
+                            selectedTab = 2
+                            scope.launch { drawerState.close() }
+                        },
+                        icon = { Icon(Icons.Default.Star, contentDescription = null) },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
 
-                NavigationDrawerItem(
-                    label = { Text("Operational Expenses") },
-                    selected = selectedTab == 12,
-                    onClick = { 
-                        selectedTab = 12
-                        scope.launch { drawerState.close() }
-                    },
-                    icon = { Icon(Icons.Default.SettingsApplications, contentDescription = null) },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
+                    NavigationDrawerItem(
+                        label = { Text("Operational Expenses") },
+                        selected = selectedTab == 12,
+                        onClick = { 
+                            selectedTab = 12
+                            scope.launch { drawerState.close() }
+                        },
+                        icon = { Icon(Icons.Default.SettingsApplications, contentDescription = null) },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
 
-                NavigationDrawerItem(
-                    label = { Text("Restock Expenses") },
-                    selected = selectedTab == 13,
-                    onClick = { 
-                        selectedTab = 13
-                        scope.launch { drawerState.close() }
-                    },
-                    icon = { Icon(Icons.Default.Inventory, contentDescription = null) },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
+                    NavigationDrawerItem(
+                        label = { Text("Restock Expenses") },
+                        selected = selectedTab == 13,
+                        onClick = { 
+                            selectedTab = 13
+                            scope.launch { drawerState.close() }
+                        },
+                        icon = { Icon(Icons.Default.Inventory, contentDescription = null) },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
 
-                NavigationDrawerItem(
-                    label = { Text("Product Categories") },
-                    selected = selectedTab == 5,
-                    onClick = { 
-                        selectedTab = 5
-                        scope.launch { drawerState.close() }
-                    },
-                    icon = { Icon(Icons.Default.Category, contentDescription = null) },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
+                    NavigationDrawerItem(
+                        label = { Text("Product Categories") },
+                        selected = selectedTab == 5,
+                        onClick = { 
+                            selectedTab = 5
+                            scope.launch { drawerState.close() }
+                        },
+                        icon = { Icon(Icons.Default.Category, contentDescription = null) },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
 
-                NavigationDrawerItem(
-                    label = { Text("Customers") },
-                    selected = selectedTab == 6,
-                    onClick = { 
-                        selectedTab = 6
-                        scope.launch { drawerState.close() }
-                    },
-                    icon = { Icon(Icons.Default.People, contentDescription = null) },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
+                    NavigationDrawerItem(
+                        label = { Text("Customers") },
+                        selected = selectedTab == 6,
+                        onClick = { 
+                            selectedTab = 6
+                            scope.launch { drawerState.close() }
+                        },
+                        icon = { Icon(Icons.Default.People, contentDescription = null) },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
 
-                NavigationDrawerItem(
-                    label = { Text("Suppliers") },
-                    selected = selectedTab == 11,
-                    onClick = { 
-                        selectedTab = 11
-                        scope.launch { drawerState.close() }
-                    },
-                    icon = { Icon(Icons.Default.LocalShipping, contentDescription = null) },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
+                    NavigationDrawerItem(
+                        label = { Text("Debt Management") },
+                        selected = selectedTab == 11,
+                        onClick = { 
+                            selectedTab = 11
+                            scope.launch { drawerState.close() }
+                        },
+                        icon = { Icon(Icons.Default.AccountBalance, contentDescription = null) },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
 
-                NavigationDrawerItem(
-                    label = { Text("Cash In/Out") },
-                    selected = selectedTab == 7,
-                    onClick = { 
-                        selectedTab = 7
-                        scope.launch { drawerState.close() }
-                    },
-                    icon = { Icon(Icons.Default.AccountBalanceWallet, contentDescription = null) },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
+                    NavigationDrawerItem(
+                        label = { Text("Cash in hand") },
+                        selected = selectedTab == 14,
+                        onClick = { 
+                            selectedTab = 14
+                            scope.launch { drawerState.close() }
+                        },
+                        icon = { Icon(Icons.Default.AccountBalanceWallet, contentDescription = null) },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+
+                    NavigationDrawerItem(
+                        label = { Text("Cash In/Out Ledger") },
+                        selected = selectedTab == 15,
+                        onClick = { 
+                            selectedTab = 15
+                            scope.launch { drawerState.close() }
+                        },
+                        icon = { Icon(Icons.Default.SwapVert, contentDescription = null) },
+                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                    )
+                }
             }
         }
     ) {
@@ -257,8 +270,8 @@ fun MainDashboard(
             }
         ) { innerPadding ->
             Column(modifier = Modifier.padding(innerPadding)) {
-                // Show month picker only for Summary, Top Selling, and Expenses
-                if (selectedTab in listOf(1, 2, 4, 12, 13) && !isAllTimeView) {
+                // Show month picker only for Summary, Top Selling, Expenses, and Cash screens
+                if (selectedTab in listOf(1, 2, 4, 12, 13, 14, 15) && !isAllTimeView) {
                     MonthPicker(
                         selectedMonth = currentMonth,
                         onMonthSelected = { currentMonth = it }
@@ -294,9 +307,14 @@ fun MainDashboard(
                         currentMonth = currentMonth,
                         onMonthSelected = { currentMonth = it }
                     )
+                    14 -> CashInHandScreen(
+                        viewModel = viewModel,
+                        currentMonth = currentMonth,
+                        onMonthSelected = { currentMonth = it }
+                    )
+                    15 -> CashInOutScreen(viewModel = viewModel)
                     5 -> CategoriesScreen()
                     6 -> CustomersScreen()
-                    7 -> CashInOutScreen(viewModel = viewModel)
                     8 -> CounterScreen(viewModel = viewModel)
                     9 -> SettingsScreen(
                         authViewModel = authViewModel,
@@ -309,6 +327,7 @@ fun MainDashboard(
                         context = context
                     )
                     10 -> FinanceScreen(viewModel = viewModel)
+                    11 -> DebtManagementScreen(viewModel = viewModel)
                 }
             }
 

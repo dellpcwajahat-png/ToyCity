@@ -16,8 +16,15 @@ class FinancialViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(FinancialRecord())
     val uiState: StateFlow<FinancialRecord> = _uiState.asStateFlow()
 
-    private val _allRecords = MutableStateFlow<List<FinancialRecord>>(emptyList())
-    val allRecords: StateFlow<List<FinancialRecord>> = _allRecords.asStateFlow()
+    private val _allRecordsRaw = MutableStateFlow<List<FinancialRecord>>(emptyList())
+    val allRecords: StateFlow<List<FinancialRecord>> = combine(_uiState, _allRecordsRaw) { current, all ->
+        if (current.id.isEmpty()) {
+            all.sortedBy { it.id }
+        } else {
+            val otherMonths = all.filter { it.id != current.id }
+            (otherMonths + current).sortedBy { it.id }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _isAllTimeView = MutableStateFlow(true)
     val isAllTimeView: StateFlow<Boolean> = _isAllTimeView.asStateFlow()
@@ -76,7 +83,7 @@ class FinancialViewModel : ViewModel() {
     private fun loadAllTrends(userId: String) {
         viewModelScope.launch {
             repository.getAllRecords(userId).collect { records ->
-                _allRecords.value = records.sortedBy { it.id }
+                _allRecordsRaw.value = records
             }
         }
     }
@@ -279,10 +286,24 @@ class FinancialViewModel : ViewModel() {
     }
 
     fun removeCashTransaction(transactionId: String) {
-        _uiState.update { state ->
-            state.copy(cashTransactions = state.cashTransactions.filter { it.id != transactionId })
+        val currentTransaction = _uiState.value.cashTransactions.find { it.id == transactionId }
+        if (currentTransaction != null) {
+            _uiState.update { state ->
+                state.copy(cashTransactions = state.cashTransactions.filter { it.id != transactionId })
+            }
+            triggerManualSave()
+        } else {
+            viewModelScope.launch {
+                val records = _allRecordsRaw.value
+                val recordWithTransaction = records.find { it.cashTransactions.any { t -> t.id == transactionId } }
+                if (recordWithTransaction != null) {
+                    val updatedRecord = recordWithTransaction.copy(
+                        cashTransactions = recordWithTransaction.cashTransactions.filter { it.id != transactionId }
+                    )
+                    repository.saveRecord(updatedRecord)
+                }
+            }
         }
-        triggerManualSave()
     }
 
     fun deleteSale(saleId: String) {

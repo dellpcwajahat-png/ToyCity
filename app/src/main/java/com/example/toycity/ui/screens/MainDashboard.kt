@@ -257,8 +257,8 @@ fun MainDashboard(
             }
         ) { innerPadding ->
             Column(modifier = Modifier.padding(innerPadding)) {
-                // Show month picker only for Summary and Top Selling
-                if (selectedTab in listOf(1, 2)) {
+                // Show month picker only for Summary, Top Selling, and Expenses
+                if (selectedTab in listOf(1, 2, 4, 12, 13) && !isAllTimeView) {
                     MonthPicker(
                         selectedMonth = currentMonth,
                         onMonthSelected = { currentMonth = it }
@@ -277,9 +277,23 @@ fun MainDashboard(
                         onNavigateBack = { selectedTab = 0 }
                     )
                     3 -> StockManagementScreen(viewModel = viewModel)
-                    4 -> ExpensesScreen(viewModel = viewModel)
-                    12 -> ExpensesScreen(viewModel = viewModel, type = "Operational")
-                    13 -> ExpensesScreen(viewModel = viewModel, type = "Restock")
+                    4 -> ExpensesScreen(
+                        viewModel = viewModel,
+                        currentMonth = currentMonth,
+                        onMonthSelected = { currentMonth = it }
+                    )
+                    12 -> ExpensesScreen(
+                        viewModel = viewModel,
+                        type = "Operational",
+                        currentMonth = currentMonth,
+                        onMonthSelected = { currentMonth = it }
+                    )
+                    13 -> ExpensesScreen(
+                        viewModel = viewModel,
+                        type = "Restock",
+                        currentMonth = currentMonth,
+                        onMonthSelected = { currentMonth = it }
+                    )
                     5 -> CategoriesScreen()
                     6 -> CustomersScreen()
                     7 -> CashInOutScreen(viewModel = viewModel)

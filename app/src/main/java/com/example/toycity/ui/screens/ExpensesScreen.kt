@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Payments
@@ -24,8 +25,14 @@ import com.example.toycity.ui.FinancialViewModel
 import com.example.toycity.utils.Formatter
 import java.util.Date
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ExpensesScreen(viewModel: FinancialViewModel = viewModel(), type: String = "All") {
+fun ExpensesScreen(
+    viewModel: FinancialViewModel = viewModel(),
+    type: String = "All",
+    currentMonth: String,
+    onMonthSelected: (String) -> Unit
+) {
     val uiState by viewModel.uiState.collectAsState()
     val allRecords by viewModel.allRecords.collectAsState()
     val isAllTimeView by viewModel.isAllTimeView.collectAsState()
@@ -46,6 +53,47 @@ fun ExpensesScreen(viewModel: FinancialViewModel = viewModel(), type: String = "
                 .padding(padding)
         ) {
             ScreenHeader(title = if (type == "All") "All Expenses" else "$type Expenses")
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                FilterChip(
+                    selected = isAllTimeView,
+                    onClick = { viewModel.setAllTimeView(!isAllTimeView) },
+                    label = { Text(if (isAllTimeView) "All-Time" else "Monthly") },
+                    leadingIcon = if (isAllTimeView) {
+                        {
+                            Icon(
+                                Icons.Default.AllInclusive,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    } else null
+                )
+
+                if (!isAllTimeView) {
+                    IconButton(onClick = { onMonthSelected(currentMonth) }) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                currentMonth,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Icon(
+                                Icons.Default.CalendarMonth,
+                                contentDescription = "Pick Month",
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
 
             val expenseTransactions = remember(uiState, allRecords, isAllTimeView, type) {
                 val transactions = if (isAllTimeView) {

@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.toycity.ui.FinancialViewModel
 import com.example.toycity.utils.Formatter
@@ -116,8 +117,8 @@ fun CashInOutScreen(viewModel: FinancialViewModel = viewModel()) {
     if (showAddDialog) {
         CashTransactionDialog(
             onDismiss = { showAddDialog = false },
-            onConfirm = { amount, note, isCashIn, date ->
-                viewModel.addCashTransaction(amount, note, isCashIn, date)
+            onConfirm = { amount, note, isCashIn, date, category ->
+                viewModel.addCashTransaction(amount, note, isCashIn, date, category)
                 showAddDialog = false
             }
         )
@@ -128,13 +129,16 @@ fun CashInOutScreen(viewModel: FinancialViewModel = viewModel()) {
 @Composable
 fun CashTransactionDialog(
     onDismiss: () -> Unit,
-    onConfirm: (Double, String, Boolean, Long) -> Unit
+    onConfirm: (Double, String, Boolean, Long, String) -> Unit
 ) {
     var amount by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
     var isCashIn by remember { mutableStateOf(true) }
     var selectedDate by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
+
+    val categories = listOf("Operational", "Restock", "Loan Repayment", "Other")
+    var selectedCategory by remember { mutableStateOf("Operational") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -155,6 +159,22 @@ fun CashTransactionDialog(
                         label = { Text("Cash Out") },
                         modifier = Modifier.weight(1f)
                     )
+                }
+
+                if (!isCashIn) {
+                    Text("Category", style = MaterialTheme.typography.labelMedium)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        categories.forEach { category ->
+                            FilterChip(
+                                selected = selectedCategory == category,
+                                onClick = { selectedCategory = category },
+                                label = { Text(category, fontSize = 10.sp) }
+                            )
+                        }
+                    }
                 }
 
                 OutlinedTextField(
@@ -185,7 +205,7 @@ fun CashTransactionDialog(
         confirmButton = {
             Button(onClick = {
                 val amt = amount.toDoubleOrNull() ?: 0.0
-                onConfirm(amt, note, isCashIn, selectedDate)
+                onConfirm(amt, note, isCashIn, selectedDate, if (isCashIn) "Income" else selectedCategory)
             }) {
                 Text("Add")
             }

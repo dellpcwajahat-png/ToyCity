@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "725254667733",
+    "project_id": "toy-city-8b7af",
+    "storage_bucket": "toy-city-8b7af.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:725254667733:android:f5ee54ec9f10286b09115c",
+        "android_client_info": {
+          "package_name": "com.example.toycity"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "725254667733-rn2vdpp8u0ap8onqcloep7fi9gl2quo1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.toycity",
+            "certificate_hash": "b720f730908443221976c2102f26a4030d923018"
+          }
+        },
+        {
+          "client_id": "725254667733-ajjud8ioaji9mpf7669tccvvbbhppnog.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyArzAxA8CJEC2sbHW5x51M74-ngsIkhIdI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "725254667733-ajjud8ioaji9mpf7669tccvvbbhppnog.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

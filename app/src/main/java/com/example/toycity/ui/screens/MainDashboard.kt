@@ -18,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.toycity.ui.FinancialViewModel
 import com.example.toycity.data.FinancialRecord
@@ -1022,7 +1023,7 @@ fun SecuritySettingsScreen(
                 SecurityManager.setAppLockEnabled(context, true)
                 isLockEnabled = true
                 showPinDialog = false
-                android.widget.Toast.makeText(context, "PIN set successfully", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, "PIN updated successfully", android.widget.Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -1030,44 +1031,126 @@ fun SecuritySettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(20.dp)
+            .verticalScroll(rememberScrollState())
     ) {
+        // Header
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            Surface(
+                onClick = onBack,
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.size(48.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
-            Text("Security Settings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(
+                    "App Security",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    "Manage your privacy & protection",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        SettingsGroup(title = "App Protection") {
+        // Hero Card for Security Status
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp),
+            shape = RoundedCornerShape(32.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isLockEnabled) 
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                else 
+                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f)
+            )
+        ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp, horizontal = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.padding(24.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(56.dp),
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                    color = if (isLockEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Icon(
+                            if (isLockEnabled) Icons.Default.Shield else Icons.Default.GppMaybe,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(20.dp))
+                Column {
+                    Text(
+                        if (isLockEnabled) "Protection Active" else "Protection Disabled",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isLockEnabled) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.error
+                    )
+                    Text(
+                        if (isLockEnabled) "Your data is secured with a PIN" else "Enable App Lock to secure your data",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        SettingsGroup(title = "Authentication Methods") {
+            // App Lock Toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable { 
+                        if (!isLockEnabled) showPinDialog = true 
+                        else {
+                            SecurityManager.setAppLockEnabled(context, false)
+                            isLockEnabled = false
+                        }
+                    }
+                    .padding(vertical = 12.dp, horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    modifier = Modifier.size(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
                     }
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("App Lock", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("Enable App Lock", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(
-                        "Require PIN or Biometric to open",
+                        "Require PIN to open ToyCity",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
                 Switch(
@@ -1084,39 +1167,48 @@ fun SecuritySettingsScreen(
             }
 
             if (isLockEnabled) {
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                
+                // Update PIN Item
                 SettingsItem(
-                    title = "Update PIN",
-                    subtitle = "Change your 4-digit security PIN",
-                    icon = Icons.Default.Password,
+                    title = "Change Security PIN",
+                    subtitle = "Update your 4-digit numeric code",
+                    icon = Icons.Default.VpnKey,
                     onClick = { showPinDialog = true }
                 )
                 
                 if (canUseBiometric) {
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    
+                    // Biometric Toggle
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable { 
+                                val newStatus = !isBiometricEnabled
+                                SecurityManager.setBiometricEnabled(context, newStatus)
+                                isBiometricEnabled = newStatus
+                            }
                             .padding(vertical = 12.dp, horizontal = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Surface(
-                            modifier = Modifier.size(40.dp),
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                            modifier = Modifier.size(44.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Fingerprint, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Default.Fingerprint, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(22.dp))
                             }
                         }
                         Spacer(modifier = Modifier.width(16.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Biometric Login", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Biometric Login", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             Text(
-                                "Use Fingerprint or Face ID",
+                                "Unlock with Fingerprint or Face ID",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.outline
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                             )
                         }
                         Switch(
@@ -1130,48 +1222,151 @@ fun SecuritySettingsScreen(
                 }
             }
         }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Security Tips
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                "Security Tips",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
+            Row(verticalAlignment = Alignment.Top) {
+                Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    "Use a PIN that is difficult to guess. Avoid using birth dates or simple patterns like 1234.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SetPinDialog(
     onDismiss: () -> Unit,
     onPinSet: (String) -> Unit
 ) {
     var pin by remember { mutableStateOf("") }
-    
-    AlertDialog(
+    val isError = pin.isNotEmpty() && pin.length < 4
+
+    BasicAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Set 4-Digit PIN") },
-        text = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        modifier = Modifier.clip(RoundedCornerShape(32.dp))
+    ) {
+        Surface(
+            modifier = Modifier.wrapContentSize(),
+            shape = RoundedCornerShape(32.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                // Icon and Title Header
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Surface(
+                        modifier = Modifier.size(56.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.VpnKey,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+                    Text(
+                        "Security PIN",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        "Enter a 4-digit code to protect your business data.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                // PIN Input Field
                 OutlinedTextField(
                     value = pin,
                     onValueChange = { if (it.length <= 4 && it.all { char -> char.isDigit() }) pin = it },
-                    label = { Text("Enter PIN") },
+                    placeholder = { 
+                        Text(
+                            "0000", 
+                            modifier = Modifier.fillMaxWidth(), 
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.headlineMedium.copy(letterSpacing = 8.sp),
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                        ) 
+                    },
                     visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                         keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
                     ),
-                    modifier = Modifier.width(120.dp)
+                    modifier = Modifier.width(180.dp),
+                    textStyle = MaterialTheme.typography.headlineMedium.copy(
+                        textAlign = TextAlign.Center,
+                        letterSpacing = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    shape = RoundedCornerShape(20.dp),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        focusedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.05f)
+                    ),
+                    isError = isError,
+                    supportingText = {
+                        if (isError) {
+                            Text("Must be 4 digits", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
                 )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { if (pin.length == 4) onPinSet(pin) },
-                enabled = pin.length == 4
-            ) {
-                Text("Confirm")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
+
+                // Actions
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text("Cancel")
+                    }
+                    Button(
+                        onClick = { if (pin.length == 4) onPinSet(pin) },
+                        enabled = pin.length == 4,
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                    ) {
+                        Text("Save PIN")
+                    }
+                }
             }
         }
-    )
+    }
 }
 
 @Composable

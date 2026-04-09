@@ -2,6 +2,7 @@ package com.example.toycity.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,7 +33,7 @@ fun CashInOutScreen(viewModel: FinancialViewModel = viewModel()) {
     val displayTransactions = remember(uiState.cashTransactions) {
         uiState.cashTransactions.filter { 
             val cat = it.category.lowercase().trim()
-            it.isCashIn || (cat != "operational" && cat != "restock")
+            it.isCashIn || (cat != "operational" && cat != "restock" && cat != "loan repayment")
         }.sortedByDescending { it.date }
     }
 
@@ -99,7 +100,7 @@ fun CashInOutScreen(viewModel: FinancialViewModel = viewModel()) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Text("Cash Ledger (Excl. Op/Restock)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("Cash Ledger (Excl. Op/Restock/Debt)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(displayTransactions) { transaction ->
@@ -168,9 +169,11 @@ fun CashInOutScreen(viewModel: FinancialViewModel = viewModel()) {
 
     if (showAddDialog) {
         CashTransactionDialog(
+            viewModel = viewModel,
+            items = uiState.inventoryData.items,
             onDismiss = { showAddDialog = false },
-            onConfirm = { amount, note, isCashIn, date, category ->
-                viewModel.addCashTransaction(amount, note, isCashIn, date, category)
+            onConfirm = { amount, note, isCashIn, date, category, productId ->
+                viewModel.addCashTransaction(amount, note, isCashIn, date, category, productId)
                 showAddDialog = false
             }
         )
@@ -180,8 +183,10 @@ fun CashInOutScreen(viewModel: FinancialViewModel = viewModel()) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CashTransactionDialog(
+    viewModel: com.example.toycity.ui.FinancialViewModel,
+    items: List<com.example.toycity.data.InventoryItem>,
     onDismiss: () -> Unit,
-    onConfirm: (Double, String, Boolean, Long, String) -> Unit
+    onConfirm: (Double, String, Boolean, Long, String, String?) -> Unit
 ) {
     var amount by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
@@ -189,8 +194,9 @@ fun CashTransactionDialog(
     var selectedDate by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
 
-    val categories = listOf("Loan Repayment", "Other")
-    var selectedCategory by remember { mutableStateOf("Loan Repayment") }
+    var selectedCategory by remember { mutableStateOf("Other") }
+    var selectedProductId by remember { mutableStateOf<String?>(null) }
+    var expanded by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -215,16 +221,53 @@ fun CashTransactionDialog(
 
                 if (!isCashIn) {
                     Text("Category", style = MaterialTheme.typography.labelMedium)
-                    Row(
+                    val customCategories by viewModel.uiState.collectAsState()
+                    val allCategories = listOf("Other", "Restock", "Operational") + customCategories.customCategories
+                    
+                    FlowRow(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        categories.forEach { category ->
+                        allCategories.distinct().forEach { category ->
                             FilterChip(
                                 selected = selectedCategory == category,
-                                onClick = { selectedCategory = category },
+                                onClick = { 
+                                    selectedCategory = category
+                                    if (category != "Restock") selectedProductId = null
+                                },
                                 label = { Text(category, fontSize = 10.sp) }
                             )
+                        }
+                    }
+
+                    if (selectedCategory == "Restock") {
+                        Text("Linked Product", style = MaterialTheme.typography.labelMedium)
+                        ExposedDropdownMenuBox(
+                            expanded = expanded,
+                            onExpandedChange = { expanded = !expanded }
+                        ) {
+                            OutlinedTextField(
+                                value = items.find { it.id == selectedProductId }?.name ?: "Select Product (Optional)",
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                                modifier = Modifier.menuAnchor().fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            ExposedDropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }
+                            ) {
+                                items.forEach { item ->
+                                    DropdownMenuItem(
+                                        text = { Text(item.name) },
+                                        onClick = {
+                                            selectedProductId = item.id
+                                            expanded = false
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -257,7 +300,7 @@ fun CashTransactionDialog(
         confirmButton = {
             Button(onClick = {
                 val amt = amount.toDoubleOrNull() ?: 0.0
-                onConfirm(amt, note, isCashIn, selectedDate, if (isCashIn) "Income" else selectedCategory)
+                onConfirm(amt, note, isCashIn, selectedDate, if (isCashIn) "Income" else selectedCategory, selectedProductId)
             }) {
                 Text("Add")
             }

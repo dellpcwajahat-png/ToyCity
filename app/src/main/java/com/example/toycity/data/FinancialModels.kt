@@ -11,6 +11,7 @@ data class FinancialRecord(
     val operatingExpenses: Double = 0.0,
     val expenseCategories: Map<String, Double> = emptyMap(), // Categorized expenses
     val customerReceivables: Double = 0.0,
+    val customCategories: List<String> = listOf("Operational", "Rent", "Utilities", "Salaries", "Marketing"),
     val inventoryData: InventoryData = InventoryData(),
     val loans: List<Loan> = emptyList(),
     val cashTransactions: List<CashTransaction> = emptyList(), // Daily Cash In/Out
@@ -42,12 +43,23 @@ data class FinancialRecord(
         get() = if (sales.isNotEmpty()) sales.sumOf { it.totalAmount } else totalSales
 
     // 2. Total Expenses (Categories + Manual Cash Out + Operating Expenses)
-    // Exclude Restock and Loan Repayments from general "Expenses" to avoid double-counting in balance formulas
+    // We trust the cashTransactions list if it contains operational records to avoid double-counting.
     val totalExpenses: Double
-        get() = operatingExpenses + expenseCategories.values.sum() + 
-                cashTransactions.filter { 
-                    !it.isCashIn && (it.category.equals("Other", ignoreCase = true) || it.category.isEmpty()) 
-                }.sumOf { it.amount }
+        get() {
+            val categorizedSum = expenseCategories.values.sum()
+            // All cash out that isn't Restock or Loan Repayment
+            val manualCashOut = cashTransactions.filter { 
+                !it.isCashIn && 
+                !it.category.equals("Restock", ignoreCase = true) && 
+                !it.category.equals("Loan Repayment", ignoreCase = true)
+            }.sumOf { it.amount }
+            
+            return if (cashTransactions.any { !it.isCashIn && it.category.equals("Operational", ignoreCase = true) }) {
+                manualCashOut + categorizedSum
+            } else {
+                operatingExpenses + categorizedSum + manualCashOut
+            }
+        }
 
     // 3. Net Profit = Sales - Expenses - COGS
     val netProfit: Double
@@ -82,7 +94,8 @@ data class CashTransaction(
     val amount: Double = 0.0,
     val note: String = "",
     val isCashIn: Boolean = true,
-    val category: String = "Operational" // "Operational" or "Restock"
+    val category: String = "Operational", // "Operational", "Restock", or "Loan Repayment"
+    val productId: String? = null // For linking restock to a specific item
 )
 
 data class Sale(

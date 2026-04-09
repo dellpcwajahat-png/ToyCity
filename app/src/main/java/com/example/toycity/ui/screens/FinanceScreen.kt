@@ -1,6 +1,5 @@
 package com.example.toycity.ui.screens
 
-import android.annotation.SuppressLint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -40,7 +39,7 @@ import java.util.*
 @Composable
 fun FinanceScreen(
     viewModel: FinancialViewModel = viewModel(),
-    @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
+    modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val allRecords by viewModel.allRecords.collectAsState()
@@ -51,6 +50,7 @@ fun FinanceScreen(
     var saleToDelete by remember { mutableStateOf<Sale?>(null) }
     var saleToEdit by remember { mutableStateOf<Sale?>(null) }
     var saleToReturnFrom by remember { mutableStateOf<Sale?>(null) }
+    var selectedTransaction by remember { mutableStateOf<com.example.toycity.data.CashTransaction?>(null) }
 
     // Combine all sales from all records for trends
     val allTimeSales = remember(allRecords) {
@@ -60,70 +60,121 @@ fun FinanceScreen(
     val filteredSales = uiState.sales.filter {
         it.customerName.contains(searchQuery, ignoreCase = true) ||
                 it.id.takeLast(8).contains(searchQuery, ignoreCase = true)
-    }.sortedByDescending { it.timestamp }
+    }
 
-    Column(
-        modifier = modifier.fillMaxSize()
-    ) {
-        ScreenHeader(title = "Ledger")
+    val auditLogItems = remember(filteredSales, uiState.cashTransactions, searchQuery) {
+        val salesItems = filteredSales
+        val cashItems = uiState.cashTransactions.filter {
+            it.note.contains(searchQuery, ignoreCase = true) ||
+                    it.category.contains(searchQuery, ignoreCase = true)
+        }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp)
-        ) {
-            // Trends Graph Section
-            if (allTimeSales.isNotEmpty()) {
-                SalesTrendSection(allTimeSales)
-                Spacer(modifier = Modifier.height(24.dp))
+        (salesItems + cashItems).sortedByDescending {
+            when (it) {
+                is Sale -> it.timestamp
+                is com.example.toycity.data.CashTransaction -> it.date
+                else -> 0L
             }
+        }
+    }
 
-            // Search Bar
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            ScreenHeader(title = "Financial Ledger")
+
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-                placeholder = { Text("Search by customer or ID...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Close, contentDescription = null)
-                        }
-                    }
-                },
-                shape = RoundedCornerShape(12.dp),
-                singleLine = true
-            )
-
-            if (filteredSales.isEmpty()) {
-                Box(modifier = Modifier.weight(1f)) {
-                    EmptyLedgerState()
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp)
+            ) {
+                // Trends Graph Section
+                if (allTimeSales.isNotEmpty()) {
+                    SalesTrendSection(allTimeSales)
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
-            } else {
-                Text(
-                    text = "Recent Transactions",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
+
+                // Search Bar
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    placeholder = { Text("Search by customer, ID or note...") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Close, contentDescription = null)
+                            }
+                        }
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true
                 )
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(bottom = 88.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    items(filteredSales, key = { it.id }) { sale ->
-                        SaleCard(
-                            sale = sale,
-                            onClick = { selectedSale = sale },
-                            onPrint = { PdfGenerator.generateReceipt(context, sale, true) }
+
+                if (auditLogItems.isEmpty()) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        EmptyLedgerState()
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.padding(bottom = 8.dp, start = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ReceiptLong,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(16.dp)
                         )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "Unified Audit Log",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(bottom = 88.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        items(auditLogItems) { item ->
+                            when (item) {
+                                is Sale -> {
+                                    SaleCard(
+                                        sale = item,
+                                        onClick = { selectedSale = item },
+                                        onPrint = { PdfGenerator.generateReceipt(context, item, true) }
+                                    )
+                                }
+                                is com.example.toycity.data.CashTransaction -> {
+                                    TransactionCard(
+                                        transaction = item,
+                                        onClick = { selectedTransaction = item }
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
+
+        // Floating Action Button for Monthly Report
+        ExtendedFloatingActionButton(
+            onClick = { showReportDialog = true },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(24.dp),
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            icon = { Icon(Icons.Default.Summarize, contentDescription = null) },
+            text = { Text("Generate Report") }
+        )
 
         // Receipt Detail Dialog
         selectedSale?.let { sale ->
@@ -146,6 +197,7 @@ fun FinanceScreen(
                 }
             )
         }
+
 
         // Delete Confirmation Dialog
         saleToDelete?.let { sale ->
@@ -200,28 +252,185 @@ fun FinanceScreen(
         if (showReportDialog) {
             AlertDialog(
                 onDismissRequest = { showReportDialog = false },
-                title = { Text("Generate Monthly Report") },
-                text = { Text("Choose the format for the full monthly financial overview of ${uiState.id}.") },
+                title = { Text("Financial Report") },
+                text = { Text("Generate a comprehensive summary for ${uiState.id}. Includes Sales, Expenses, and Debt status.") },
                 confirmButton = {
-                    TextButton(onClick = {
-                        PdfGenerator.generateFinancialReport(context, uiState, false)
-                        showReportDialog = false
-                    }) {
-                        Text("A4 Document")
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = {
+                                PdfGenerator.generateFinancialReport(context, uiState, false)
+                                showReportDialog = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.PictureAsPdf, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("A4 Report")
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                PdfGenerator.generateFinancialReport(context, uiState, true)
+                                showReportDialog = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Print, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Thermal (58mm)")
+                        }
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = {
-                        PdfGenerator.generateFinancialReport(context, uiState, true)
-                        showReportDialog = false
-                    }) {
-                        Text("58mm Thermal")
+                    TextButton(onClick = { showReportDialog = false }) {
+                        Text("Cancel")
                     }
+                }
+            )
+        }
+
+        // Transaction Detail Dialog
+        selectedTransaction?.let { transaction ->
+            TransactionDetailDialog(
+                transaction = transaction,
+                onDismiss = { selectedTransaction = null },
+                onDelete = {
+                    viewModel.removeCashTransaction(transaction.id)
+                    selectedTransaction = null
                 }
             )
         }
     }
 }
+
+@Composable
+fun TransactionCard(
+    transaction: com.example.toycity.data.CashTransaction,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (transaction.isCashIn) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    if (transaction.isCashIn) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                    contentDescription = null,
+                    tint = if (transaction.isCashIn) Color(0xFF2E7D32) else Color(0xFFC62828),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = transaction.category,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = transaction.note.ifEmpty { "No note provided" },
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = (if (transaction.isCashIn) "+" else "-") + Formatter.formatCurrency(transaction.amount),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (transaction.isCashIn) Color(0xFF2E7D32) else Color(0xFFC62828)
+                )
+                Text(
+                    text = Formatter.formatDate(Date(transaction.date)),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun TransactionDetailDialog(
+    transaction: com.example.toycity.data.CashTransaction,
+    onDismiss: () -> Unit,
+    onDelete: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Transaction Details")
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                DetailRow("Type", if (transaction.isCashIn) "Cash In" else "Cash Out")
+                DetailRow("Category", transaction.category)
+                DetailRow("Amount", Formatter.formatCurrency(transaction.amount))
+                DetailRow("Date", Formatter.formatDate(Date(transaction.date)))
+                DetailRow("Note", transaction.note.ifEmpty { "N/A" })
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    "Note: Deleting this will automatically adjust your Cash in Drawer and relevant totals.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Close") }
+        }
+    )
+}
+
+// Helper to fix AlertDialog extra buttons or use standard buttons
+@Composable
+fun DetailRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+        Text(value, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+
 
 @Composable
 fun SalesTrendSection(allSales: List<Sale>) {

@@ -11,8 +11,10 @@ object Formatter {
 
     fun formatCurrency(value: Double?): String {
         val amount = if (value == null || value.isNaN() || value.isInfinite()) 0.0 else value
-        return "Rs ${numberFormat.format(amount)}"
+        return "${currencySymbol()} ${numberFormat.format(amount)}"
     }
+
+    fun currencySymbol(): String = "Rs"
 
     fun formatDate(date: Date): String {
         return dateFormat.format(date)

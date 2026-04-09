@@ -18,11 +18,17 @@ class FinancialViewModel : ViewModel() {
 
     private val _allRecordsRaw = MutableStateFlow<List<FinancialRecord>>(emptyList())
     val allRecords: StateFlow<List<FinancialRecord>> = combine(_uiState, _allRecordsRaw) { current, all ->
-        if (current.id.isEmpty()) {
-            all.sortedBy { it.id }
+        val combined = if (current.id.isEmpty()) {
+            all
         } else {
             val otherMonths = all.filter { it.id != current.id }
-            (otherMonths + current).sortedBy { it.id }
+            otherMonths + current
+        }
+        
+        combined.sortedWith { r1, r2 ->
+            val d1 = Formatter.parseMonth(r1.id) ?: java.util.Date(0)
+            val d2 = Formatter.parseMonth(r2.id) ?: java.util.Date(0)
+            d1.compareTo(d2)
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -45,15 +51,37 @@ class FinancialViewModel : ViewModel() {
         loadDataJob = viewModelScope.launch {
             repository.getRecordFlow(userId, monthId).collect { record ->
                 if (record == null) {
-                    // Try to fetch previous month's data for starting cash
+                    // Try to fetch previous month's data for carry-over
                     val prevMonthId = getPreviousMonthId(monthId)
                     val prevRecord = repository.getRecord(userId, prevMonthId)
+                    
                     val startingCash = prevRecord?.cashInDrawer ?: 0.0
+                    val carriedLoans = prevRecord?.loans ?: emptyList()
+                    val carriedInventoryItems = prevRecord?.inventoryData?.items ?: emptyList()
+                    val carriedReceivables = prevRecord?.customerReceivables ?: 0.0
                     
                     _uiState.update { current ->
                         if (current.id != monthId) {
-                            FinancialRecord(id = monthId, userId = userId, startingCash = startingCash)
-                        } else current
+                            FinancialRecord(
+                                id = monthId, 
+                                userId = userId, 
+                                startingCash = startingCash,
+                                loans = carriedLoans,
+                                customerReceivables = carriedReceivables,
+                                inventoryData = com.example.toycity.data.InventoryData(items = carriedInventoryItems)
+                            )
+                        } else {
+                            // If we're already on this month but record was null (newly created), 
+                            // update carry-over values if they are default
+                            current.copy(
+                                startingCash = if (current.startingCash == 0.0) startingCash else current.startingCash,
+                                loans = if (current.loans.isEmpty()) carriedLoans else current.loans,
+                                customerReceivables = if (current.customerReceivables == 0.0) carriedReceivables else current.customerReceivables,
+                                inventoryData = if (current.inventoryData.items.isEmpty()) 
+                                    current.inventoryData.copy(items = carriedInventoryItems) 
+                                    else current.inventoryData
+                            )
+                        }
                     }
                 } else {
                     _uiState.value = record
@@ -66,8 +94,8 @@ class FinancialViewModel : ViewModel() {
     private fun getPreviousMonthId(monthId: String): String {
         return try {
             val parts = monthId.split("-")
-            val year = parts[0].toInt()
-            val month = parts[1].toInt()
+            val month = parts[0].toInt()
+            val year = parts[1].toInt()
             
             val calendar = java.util.Calendar.getInstance()
             calendar.set(java.util.Calendar.YEAR, year)
@@ -117,6 +145,21 @@ class FinancialViewModel : ViewModel() {
             else updatedCategories[category] = amount
             state.copy(expenseCategories = updatedCategories)
         }
+    }
+
+    fun addCustomCategory(category: String) {
+        _uiState.update { state ->
+            if (state.customCategories.contains(category)) state
+            else state.copy(customCategories = state.customCategories + category)
+        }
+        saveData()
+    }
+
+    fun removeCustomCategory(category: String) {
+        _uiState.update { state ->
+            state.copy(customCategories = state.customCategories - category)
+        }
+        saveData()
     }
 
     fun addInventoryItem(item: InventoryItem) {
@@ -309,7 +352,7 @@ class FinancialViewModel : ViewModel() {
         }
     }
 
-    fun addCashTransaction(amount: Double, note: String, isCashIn: Boolean, date: Long, category: String = "Operational") {
+    fun addCashTransaction(amount: Double, note: String, isCashIn: Boolean, date: Long, category: String = "Operational", productId: String? = null) {
         val transactionMonthId = Formatter.formatMonth(java.util.Date(date))
         val userId = currentUserId.ifEmpty { "SHARED_STORE_DATA" }
 
@@ -320,7 +363,8 @@ class FinancialViewModel : ViewModel() {
                 note = note,
                 isCashIn = isCashIn,
                 date = date,
-                category = category
+                category = category,
+                productId = productId
             )
             
             // If it's an Operational Expense, automatically update the operatingExpenses field
@@ -328,9 +372,26 @@ class FinancialViewModel : ViewModel() {
                 state.operatingExpenses + amount
             } else state.operatingExpenses
 
-            // If it's a Restock Cash-Out, automatically update the investment field
             val updatedInventory = if (state.id == transactionMonthId && !isCashIn && category == "Restock") {
-                state.inventoryData.copy(restockInvestment = state.inventoryData.restockInvestment + amount)
+                val updatedItems = state.inventoryData.items.map { item ->
+                    if (productId != null && item.id == productId) {
+                        // If it's a specific product restock, update its quantity
+                        // We use amount / costPrice to estimate quantity if it wasn't provided, 
+                        // but usually it's better to just track the investment.
+                        // However, per requirement "automated quantity increments":
+                        val addedQty = if (item.costPrice > 0) (amount / item.costPrice).toInt() else 0
+                        item.copy(
+                            quantity = item.quantity + addedQty,
+                            totalQuantity = item.totalQuantity + addedQty
+                        )
+                    } else if (productId == null && note.contains(item.name, ignoreCase = true)) {
+                        item
+                    } else item
+                }
+                state.inventoryData.copy(
+                    restockInvestment = state.inventoryData.restockInvestment + amount,
+                    items = updatedItems
+                )
             } else state.inventoryData
 
             // If it's a Loan Repayment, try to match by note name
@@ -364,7 +425,8 @@ class FinancialViewModel : ViewModel() {
                         note = note,
                         isCashIn = isCashIn,
                         date = date,
-                        category = category
+                        category = category,
+                        productId = productId
                     )
 
                     val updatedOperatingExpenses = if (!isCashIn && category == "Operational") {
@@ -372,7 +434,19 @@ class FinancialViewModel : ViewModel() {
                     } else targetRecord.operatingExpenses
 
                     val updatedInventory = if (!isCashIn && category == "Restock") {
-                        targetRecord.inventoryData.copy(restockInvestment = targetRecord.inventoryData.restockInvestment + amount)
+                        val updatedItems = targetRecord.inventoryData.items.map { item ->
+                            if (productId != null && item.id == productId) {
+                                val addedQty = if (item.costPrice > 0) (amount / item.costPrice).toInt() else 0
+                                item.copy(
+                                    quantity = item.quantity + addedQty,
+                                    totalQuantity = item.totalQuantity + addedQty
+                                )
+                            } else item
+                        }
+                        targetRecord.inventoryData.copy(
+                            restockInvestment = targetRecord.inventoryData.restockInvestment + amount,
+                            items = updatedItems
+                        )
                     } else targetRecord.inventoryData
 
                     val updatedLoans = if (!isCashIn && category == "Loan Repayment") {

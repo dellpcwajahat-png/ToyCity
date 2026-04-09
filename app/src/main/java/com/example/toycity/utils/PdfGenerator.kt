@@ -121,22 +121,54 @@ object PdfGenerator {
 
             // Loans Status
             if (record.loans.isNotEmpty()) {
-                document.add(Paragraph("Loans Status")
+                document.add(Paragraph("Loans & Debt Status")
                     .simulateBold()
                     .setFontSize(if (pageSize58mm) 10f else 12f)
+                    .setMarginTop(10f)
                     .setMarginBottom(5f))
                 
-                val loanTable = Table(UnitValue.createPercentArray(floatArrayOf(2f, 2f, 2f))).useAllAvailableWidth()
+                val loanTable = Table(UnitValue.createPercentArray(floatArrayOf(2f, 2f, 2f, 2f))).useAllAvailableWidth()
                 loanTable.addHeaderCell(createReceiptHeaderCell("Lender", pageSize58mm))
                 loanTable.addHeaderCell(createReceiptHeaderCell("Principal", pageSize58mm))
                 loanTable.addHeaderCell(createReceiptHeaderCell("Repaid", pageSize58mm))
+                loanTable.addHeaderCell(createReceiptHeaderCell("Balance", pageSize58mm))
                 
                 record.loans.forEach { loan ->
+                    val balance = (loan.principalAmount - loan.repaymentToDate).coerceAtLeast(0.0)
                     loanTable.addCell(createReceiptCell(loan.lenderName, pageSize58mm))
                     loanTable.addCell(createReceiptCell(formatValue(loan.principalAmount), pageSize58mm))
                     loanTable.addCell(createReceiptCell(formatValue(loan.repaymentToDate), pageSize58mm))
+                    loanTable.addCell(createReceiptCell(formatValue(balance), pageSize58mm).setFontColor(if (balance > 0) ERROR_COLOR else SUCCESS_COLOR))
                 }
-                document.add(loanTable.setMarginBottom(15f))
+                document.add(loanTable.setMarginBottom(10f))
+                
+                val totalDebtRow = Table(UnitValue.createPercentArray(floatArrayOf(1f, 1f))).useAllAvailableWidth()
+                addDetailRow(totalDebtRow, "Total Outstanding Debt", record.totalDebt, pageSize58mm)
+                document.add(totalDebtRow.setMarginBottom(15f))
+            }
+
+            // Recent Cash Transactions (Optional - for audit)
+            val recentCash = record.cashTransactions.takeLast(10)
+            if (recentCash.isNotEmpty() && !pageSize58mm) {
+                document.add(Paragraph("Recent Cash Transactions")
+                    .simulateBold()
+                    .setFontSize(12f)
+                    .setMarginTop(10f)
+                    .setMarginBottom(5f))
+                
+                val cashTable = Table(UnitValue.createPercentArray(floatArrayOf(2f, 3f, 2f, 2f))).useAllAvailableWidth()
+                cashTable.addHeaderCell(createReceiptHeaderCell("Date", false))
+                cashTable.addHeaderCell(createReceiptHeaderCell("Note/Category", false))
+                cashTable.addHeaderCell(createReceiptHeaderCell("Type", false))
+                cashTable.addHeaderCell(createReceiptHeaderCell("Amount", false))
+
+                recentCash.reversed().forEach { tx ->
+                    cashTable.addCell(createReceiptCell(Formatter.formatDate(Date(tx.date)), false))
+                    cashTable.addCell(createReceiptCell("${tx.note} (${tx.category})", false))
+                    cashTable.addCell(createReceiptCell(if (tx.isCashIn) "IN" else "OUT", false).setFontColor(if (tx.isCashIn) SUCCESS_COLOR else ERROR_COLOR))
+                    cashTable.addCell(createReceiptCell(formatValue(tx.amount), false))
+                }
+                document.add(cashTable.setMarginBottom(15f))
             }
 
             // Footer

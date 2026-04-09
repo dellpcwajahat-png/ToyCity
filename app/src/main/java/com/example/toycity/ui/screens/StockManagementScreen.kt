@@ -50,6 +50,7 @@ fun StockManagementScreen(viewModel: FinancialViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    var showLowStockOnly by remember { mutableStateOf(false) }
     var itemToDelete by remember { mutableStateOf<InventoryItem?>(null) }
     val context = LocalContext.current
 
@@ -73,32 +74,60 @@ fun StockManagementScreen(viewModel: FinancialViewModel = viewModel()) {
     }
 
     val filteredItems = uiState.inventoryData.items.filter {
-        it.name.contains(searchQuery, ignoreCase = true) || it.barcode.contains(searchQuery, ignoreCase = true)
+        (it.name.contains(searchQuery, ignoreCase = true) || it.barcode.contains(searchQuery, ignoreCase = true)) &&
+        (!showLowStockOnly || it.quantity <= it.lowStockThreshold)
     }
 
     Scaffold(
         topBar = {
             Column {
-                ScreenHeader(title = "Products")
-                // Modern SearchBar
-                SearchBar(
-                    inputField = {
-                        SearchBarDefaults.InputField(
-                            query = searchQuery,
-                            onQueryChange = { searchQuery = it },
-                            onSearch = { /* Handle search action if needed */ },
-                            expanded = false,
-                            onExpandedChange = { },
-                            placeholder = { Text("Search products...") },
-                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search Icon") }
-                        )
-                    },
-                    expanded = false,
-                    onExpandedChange = { },
+                ScreenHeader(title = "Stock Inventory")
+                
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) { }
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    placeholder = { Text("Search products...") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Close, null)
+                            }
+                        }
+                    },
+                    shape = RoundedCornerShape(20.dp),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                    )
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = !showLowStockOnly,
+                        onClick = { showLowStockOnly = false },
+                        label = { Text("All Items") },
+                        shape = RoundedCornerShape(20.dp)
+                    )
+                    FilterChip(
+                        selected = showLowStockOnly,
+                        onClick = { showLowStockOnly = true },
+                        label = { Text("Low Stock") },
+                        shape = RoundedCornerShape(20.dp),
+                        leadingIcon = if (showLowStockOnly) {
+                            { Icon(Icons.Default.Warning, null, modifier = Modifier.size(16.dp)) }
+                        } else null
+                    )
+                }
             }
         },
         floatingActionButton = {
@@ -106,7 +135,7 @@ fun StockManagementScreen(viewModel: FinancialViewModel = viewModel()) {
                 onClick = { showAddDialog = true },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = CircleShape
+                shape = RoundedCornerShape(20.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Product")
             }
@@ -201,10 +230,11 @@ fun ProductCard(
     onDelete: () -> Unit
 ) {
     val context = LocalContext.current
-    Card(
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ElevatedCard(
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.fillMaxWidth()
     ) {
         Column {
             Box(
@@ -237,20 +267,20 @@ fun ProductCard(
                 // Stock Badge showing Available / Total
                 val badgeColor = when {
                     item.quantity <= 0 -> MaterialTheme.colorScheme.error
-                    item.quantity <= item.lowStockThreshold -> Color(0xFFFFA500) // Orange
-                    else -> Color(0xFF4CAF50) // Green
+                    item.quantity <= item.lowStockThreshold -> Color(0xFFE67E22) // Premium Orange
+                    else -> Color(0xFF2ECC71) // Premium Green
                 }
                 
                 Surface(
                     color = badgeColor.copy(alpha = 0.9f),
-                    shape = RoundedCornerShape(bottomEnd = 8.dp),
+                    shape = RoundedCornerShape(bottomEnd = 12.dp),
                     modifier = Modifier.align(Alignment.TopStart)
                 ) {
                     Text(
                         text = "${item.quantity}/${item.totalQuantity}",
                         style = MaterialTheme.typography.labelSmall,
                         color = Color.White,
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -260,30 +290,30 @@ fun ProductCard(
                     onClick = onDelete,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(2.dp)
-                        .size(24.dp)
-                        .background(Color.Black.copy(alpha = 0.3f), CircleShape)
+                        .padding(4.dp)
+                        .size(28.dp)
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f), CircleShape)
                 ) {
                     Icon(
                         Icons.Default.Delete,
                         contentDescription = "Delete",
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
 
-            Column(modifier = Modifier.padding(8.dp)) {
+            Column(modifier = Modifier.padding(10.dp)) {
                 Text(
                     text = item.name,
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = Formatter.formatCurrency(item.sellingPrice),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.ExtraBold
                 )
@@ -444,7 +474,7 @@ fun AddProductDialog(
                 Box(
                     modifier = Modifier
                         .size(120.dp)
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(24.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                         .clickable { showImageSourceDialog = true }
                         .align(Alignment.CenterHorizontally),
@@ -477,7 +507,7 @@ fun AddProductDialog(
                     onValueChange = { name = it },
                     label = { Text("Product Name") },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(20.dp),
                     singleLine = true,
                     isError = isDuplicateName,
                     supportingText = {
@@ -494,7 +524,7 @@ fun AddProductDialog(
                     onValueChange = { barcode = it },
                     label = { Text("Barcode / Serial Number") },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(20.dp),
                     singleLine = true,
                     trailingIcon = {
                         IconButton(onClick = { dialogScanLauncher.launch("image/*") }) {
@@ -512,7 +542,7 @@ fun AddProductDialog(
                         label = { Text("Cost Price") },
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(20.dp),
                         singleLine = true
                     )
                     OutlinedTextField(
@@ -521,7 +551,7 @@ fun AddProductDialog(
                         label = { Text("Retail Price") },
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(20.dp),
                         singleLine = true
                     )
                 }
@@ -535,7 +565,7 @@ fun AddProductDialog(
                         label = { Text("Total Stock") },
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(20.dp),
                         singleLine = true
                     )
                     OutlinedTextField(
@@ -544,7 +574,7 @@ fun AddProductDialog(
                         label = { Text("Available Stock") },
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(20.dp),
                         singleLine = true,
                         placeholder = { Text(totalQuantity.ifEmpty { "0" }) }
                     )

@@ -5,18 +5,22 @@ import androidx.compose.foundation.layout.*
 import com.example.toycity.utils.Formatter
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AllInclusive
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.toycity.data.FinancialRecord
 import com.example.toycity.ui.FinancialViewModel
@@ -104,15 +108,23 @@ fun AnalyticsScreen(
         item {
             val netProfit = if (isAllTimeView) allTimeNetProfit else uiState.netProfit
             val dailyAvg = if (isAllTimeView) allTimeDailyAvg else uiState.dailyAverageSale
-            val cashInDrawer = allRecords.maxByOrNull { it.id }?.cashInDrawer ?: uiState.cashInDrawer
             
-            // Customer Balance logic:
-            // Monthly view: Show current month's receivables
-            // All-Time view: Show receivables from the latest month that has any data (sales or receivables)
-            // This ensures April shows once you enter data for it, otherwise it stays on March.
+            // Find the latest record based on chronological order
+            val latestRecord = allRecords.maxByOrNull { 
+                Formatter.parseMonth(it.id) ?: java.util.Date(0) 
+            }
+            
+            val cashInDrawer = if (isAllTimeView) {
+                latestRecord?.cashInDrawer ?: uiState.cashInDrawer
+            } else {
+                uiState.cashInDrawer
+            }
+            
             val customerBalance = if (isAllTimeView) {
+                // Find latest month that actually has some activity
                 allRecords.filter { it.totalSales > 0 || it.customerReceivables > 0 }
-                    .maxByOrNull { it.id }?.customerReceivables ?: 0.0
+                    .maxByOrNull { Formatter.parseMonth(it.id) ?: java.util.Date(0) }
+                    ?.customerReceivables ?: 0.0
             } else {
                 uiState.customerReceivables
             }
@@ -121,17 +133,53 @@ fun AnalyticsScreen(
             val totalRestock = if (isAllTimeView) allTimeRestock else uiState.inventoryData.restockInvestment
 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    MetricCardItem(Modifier.weight(1f), "Net Profit", Formatter.formatCurrency(netProfit), MaterialTheme.colorScheme.primaryContainer)
-                    MetricCardItem(Modifier.weight(1f), "Daily Avg Sale", Formatter.formatCurrency(dailyAvg), MaterialTheme.colorScheme.tertiaryContainer)
+                Row(modifier = Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    MetricCardItem(
+                        Modifier.weight(1f),
+                        "Net Profit",
+                        Formatter.formatCurrency(netProfit),
+                        MaterialTheme.colorScheme.primaryContainer,
+                        Icons.Default.Payments
+                    )
+                    MetricCardItem(
+                        Modifier.weight(1f),
+                        "Daily Avg",
+                        Formatter.formatCurrency(dailyAvg),
+                        MaterialTheme.colorScheme.tertiaryContainer,
+                        Icons.AutoMirrored.Filled.TrendingUp
+                    )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    MetricCardItem(Modifier.weight(1f), "Cash In Drawer", Formatter.formatCurrency(cashInDrawer), MaterialTheme.colorScheme.surfaceVariant)
-                    MetricCardItem(Modifier.weight(1f), "Cost of Goods", Formatter.formatCurrency(totalCOGS), MaterialTheme.colorScheme.outlineVariant)
+                Row(modifier = Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    MetricCardItem(
+                        Modifier.weight(1f),
+                        "Cash In Drawer",
+                        Formatter.formatCurrency(cashInDrawer),
+                        MaterialTheme.colorScheme.surfaceVariant,
+                        Icons.Default.AccountBalanceWallet
+                    )
+                    MetricCardItem(
+                        Modifier.weight(1f),
+                        "Cost of Goods",
+                        Formatter.formatCurrency(totalCOGS),
+                        MaterialTheme.colorScheme.secondaryContainer,
+                        Icons.Default.Inventory2
+                    )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    MetricCardItem(Modifier.weight(1f), "Total Restock", Formatter.formatCurrency(totalRestock), MaterialTheme.colorScheme.inverseOnSurface)
-                    MetricCardItem(Modifier.weight(1f), "Customer Balance", Formatter.formatCurrency(customerBalance), MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f))
+                Row(modifier = Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    MetricCardItem(
+                        Modifier.weight(1f),
+                        "Total Restock",
+                        Formatter.formatCurrency(totalRestock),
+                        MaterialTheme.colorScheme.inverseOnSurface,
+                        Icons.Default.AddShoppingCart
+                    )
+                    MetricCardItem(
+                        Modifier.weight(1f),
+                        "Receivables",
+                        Formatter.formatCurrency(customerBalance),
+                        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
+                        Icons.Default.People
+                    )
                 }
             }
         }
@@ -157,20 +205,25 @@ fun AnalyticsScreen(
                 Text(
                     text = if (isAllTimeView) "Lifetime Debt Summary" else "Monthly Debt Status",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 16.dp)
                 )
             }
             items(activeLoans) { loan ->
-                LoanSummaryItem(loan)
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    LoanSummaryItem(loan)
+                }
             }
         }
 
         // Trends Section
         if (allRecords.size > 1) {
             item {
-                Text("Sales Trends (Last 6 Months)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(8.dp))
-                TrendChart(allRecords)
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    Text("Sales Trends (Last 6 Months)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    TrendChart(allRecords)
+                }
             }
         }
 
@@ -178,11 +231,23 @@ fun AnalyticsScreen(
         val lowStockItems = uiState.inventoryData.items.filter { it.quantity <= it.lowStockThreshold }
         if (lowStockItems.isNotEmpty()) {
             item {
-                Text("Low Stock Alerts", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                Text(
+                    "Low Stock Alerts",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
             }
             items(lowStockItems) { item ->
-                InventoryAlertItem(item)
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    InventoryAlertItem(item)
+                }
             }
+        }
+        
+        item {
+            Spacer(modifier = Modifier.height(80.dp))
         }
     }
 }
@@ -243,26 +308,49 @@ fun LoanSummaryItem(loan: com.example.toycity.data.Loan) {
 
 @Composable
 fun TrendChart(records: List<FinancialRecord>) {
-    val maxSales = records.maxOfOrNull { it.totalSales }?.takeIf { it > 0 } ?: 1.0
+    val displayRecords = records.takeLast(6)
+    val maxSales = displayRecords.maxOfOrNull { it.totalSales }?.takeIf { it > 0 } ?: 1.0
+    
     Card(
-        modifier = Modifier.fillMaxWidth().height(120.dp),
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth().height(180.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
     ) {
-        Row(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            records.takeLast(6).forEach { record ->
-                val barHeight = (record.totalSales / maxSales).toFloat().coerceIn(0.1f, 1f)
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight(barHeight)
-                        .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                        .background(MaterialTheme.colorScheme.primary)
-                )
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                displayRecords.forEach { record ->
+                    val barHeight = (record.totalSales / maxSales).toFloat().coerceIn(0.05f, 1f)
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Bottom
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .fillMaxHeight(barHeight)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            MaterialTheme.colorScheme.primary,
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                                        )
+                                    )
+                                )
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = record.id.take(3),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         }
     }
@@ -272,35 +360,67 @@ fun TrendChart(records: List<FinancialRecord>) {
 fun InventoryAlertItem(item: com.example.toycity.data.InventoryItem) {
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f))
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column {
-                Text(item.name, fontWeight = FontWeight.Bold)
-                Text("Only ${item.quantity} left", style = MaterialTheme.typography.bodySmall)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.errorContainer
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.PriorityHigh, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(item.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                    Text("Current Stock: ${item.quantity} units", style = MaterialTheme.typography.bodySmall)
+                }
             }
-            Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+            Text(
+                "LOW STOCK",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.error
+            )
         }
     }
 }
 
 @Composable
-fun MetricCardItem(modifier: Modifier = Modifier, label: String, value: String, containerColor: Color) {
+fun MetricCardItem(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String,
+    containerColor: Color,
+    icon: ImageVector
+) {
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = containerColor),
-        modifier = modifier.height(100.dp)
+        modifier = modifier.height(110.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp).fillMaxSize(),
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(label, style = MaterialTheme.typography.labelSmall)
-            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+            Column {
+                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            }
         }
     }
 }

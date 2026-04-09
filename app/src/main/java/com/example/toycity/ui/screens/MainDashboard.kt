@@ -40,6 +40,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import com.example.toycity.utils.Formatter
 import com.example.toycity.utils.SecurityManager
 import com.example.toycity.ui.components.ScreenHeader
@@ -207,8 +208,24 @@ fun MainDashboard(
             topBar = {
                 TopAppBar(
                     title = { 
+                        val title = when(selectedTab) {
+                            0 -> "Toy City"
+                            1 -> "Business Summary"
+                            2 -> "Top Selling"
+                            3 -> "Product Stock"
+                            4, 12, 13 -> "Expenses"
+                            5 -> "Categories"
+                            6 -> "Customers"
+                            8 -> "Point of Sale"
+                            9 -> "Settings"
+                            10 -> "Financial Ledger"
+                            11 -> "Debt Management"
+                            14 -> "Cash in Hand"
+                            15 -> "Cash Ledger"
+                            else -> "Toy City"
+                        }
                         Text(
-                            "Toy City",
+                            title,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.primary
@@ -373,6 +390,124 @@ fun MainDashboard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ExpenseCategoriesScreen(
+    viewModel: com.example.toycity.ui.FinancialViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
+    onBack: () -> Unit
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    var showAddDialog by remember { mutableStateOf(false) }
+    var newCategoryName by remember { mutableStateOf("") }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Expense Categories") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showAddDialog = true }) {
+                Icon(Icons.Default.Add, contentDescription = "Add Category")
+            }
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            Text(
+                "Custom Categories",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(16.dp),
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                )
+            ) {
+                Column(modifier = Modifier.padding(8.dp)) {
+                    uiState.customCategories.forEach { category ->
+                        ListItem(
+                            headlineContent = { Text(category) },
+                            trailingContent = {
+                                IconButton(onClick = { viewModel.removeCustomCategory(category) }) {
+                                    Icon(
+                                        Icons.Default.Delete,
+                                        contentDescription = "Delete",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        )
+                        if (category != uiState.customCategories.last()) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Text(
+                "These categories will be available when recording new expenses.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(16.dp)
+            )
+        }
+    }
+
+    if (showAddDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddDialog = false },
+            title = { Text("New Category") },
+            text = {
+                OutlinedTextField(
+                    value = newCategoryName,
+                    onValueChange = { newCategoryName = it },
+                    label = { Text("Category Name") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newCategoryName.isNotBlank()) {
+                            viewModel.addCustomCategory(newCategoryName.trim())
+                            newCategoryName = ""
+                            showAddDialog = false
+                        }
+                    }
+                ) {
+                    Text("Add")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+}
+
 @Composable
 fun ExportFormatDialog(
     isAllTimeView: Boolean,
@@ -440,6 +575,7 @@ fun MonthPicker(
         }
     }
 }
+
 
 @Composable
 fun MonthPickerDialog(
@@ -542,7 +678,7 @@ fun MonthPickerDialog(
 }
 
 enum class SettingsView {
-    MAIN, PROFILE, SECURITY, DATA_MANAGEMENT, BACKUP, RESTORE, RECEIPT, PRINTER
+    MAIN, PROFILE, SECURITY, DATA_MANAGEMENT, BACKUP, RESTORE, RECEIPT, PRINTER, EXPENSE_CATEGORIES
 }
 
 @Composable
@@ -608,9 +744,13 @@ fun SettingsScreen(
                 context = context,
                 onBack = { currentView = SettingsView.MAIN }
             )
+            SettingsView.EXPENSE_CATEGORIES -> ExpenseCategoriesScreen(
+                onBack = { currentView = SettingsView.MAIN }
+            )
         }
     }
 }
+
 
 @Composable
 fun SettingsMainView(
@@ -651,66 +791,119 @@ fun SettingsMainView(
     ) {
         ScreenHeader(title = "Settings")
 
+        // User Profile Header Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .clickable { onNavigate(SettingsView.PROFILE) },
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+            )
+        ) {
+            Row(
+                modifier = Modifier.padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    modifier = Modifier.size(60.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = user?.displayName?.take(1)?.uppercase() ?: user?.email?.take(1)?.uppercase() ?: "?",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = user?.displayName ?: "Business Owner",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        text = user?.email ?: "No email linked",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Icon(
+                    Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
         Column(
             modifier = Modifier
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Account Section
-            SettingsGroup(title = "Account") {
-            SettingsItem(
-                title = "Profile",
-                subtitle = user?.displayName ?: user?.email ?: "Manage your profile",
-                icon = Icons.Default.Person,
-                onClick = { onNavigate(SettingsView.PROFILE) }
-            )
-            SettingsItem(
-                title = "Security",
-                subtitle = "App lock, PIN, and Biometrics",
-                icon = Icons.Default.Security,
-                onClick = { onNavigate(SettingsView.SECURITY) }
-            )
-        }
+            SettingsGroup(title = "Security & Access") {
+                SettingsItem(
+                    title = "App Security",
+                    subtitle = "PIN, Biometrics & Privacy",
+                    icon = Icons.Default.Security,
+                    onClick = { onNavigate(SettingsView.SECURITY) }
+                )
+            }
 
-        // Hardware & Customization
-        SettingsGroup(title = "Hardware & Customization") {
-            SettingsItem(
-                title = "Printer Setting",
-                subtitle = "Manage Bluetooth printer and paper size",
-                icon = Icons.Default.Print,
-                onClick = { onNavigate(SettingsView.PRINTER) }
-            )
-            SettingsItem(
-                title = "Receipt Settings",
-                subtitle = "Customize your business receipts",
-                icon = Icons.Default.Receipt,
-                onClick = { onNavigate(SettingsView.RECEIPT) }
-            )
-        }
+            // Hardware & Customization
+            SettingsGroup(title = "Business Setup") {
+                SettingsItem(
+                    title = "Expense Categories",
+                    subtitle = "Manage custom business expenses",
+                    icon = Icons.Default.Category,
+                    onClick = { onNavigate(SettingsView.EXPENSE_CATEGORIES) }
+                )
+                SettingsItem(
+                    title = "Printer Settings",
+                    subtitle = "Bluetooth & Paper Size",
+                    icon = Icons.Default.Print,
+                    onClick = { onNavigate(SettingsView.PRINTER) }
+                )
+                SettingsItem(
+                    title = "Receipt Designer",
+                    subtitle = "Customize business receipts",
+                    icon = Icons.Default.Receipt,
+                    onClick = { onNavigate(SettingsView.RECEIPT) }
+                )
+            }
 
-        // Data Management
-        SettingsGroup(title = "Data Management") {
-            SettingsItem(
-                title = "Backup & Restore",
-                subtitle = "Manage your data storage",
-                icon = Icons.Default.CloudSync,
-                onClick = { onNavigate(SettingsView.DATA_MANAGEMENT) }
-            )
-        }
+            // Data Management
+            SettingsGroup(title = "Data & Storage") {
+                SettingsItem(
+                    title = "Backup & Restore",
+                    subtitle = "Cloud & Local Data Management",
+                    icon = Icons.Default.CloudSync,
+                    onClick = { onNavigate(SettingsView.DATA_MANAGEMENT) }
+                )
+            }
 
-        // Logout
-        SettingsGroup(title = "Exit") {
-            SettingsItem(
-                title = "Sign Out",
-                subtitle = "Securely logout from your account",
-                icon = Icons.AutoMirrored.Filled.Logout,
-                textColor = MaterialTheme.colorScheme.error,
-                onClick = { showLogoutConfirm = true }
-            )
+            // Logout
+            SettingsGroup(title = "Account Action") {
+                SettingsItem(
+                    title = "Sign Out",
+                    subtitle = "Securely logout from your account",
+                    icon = Icons.AutoMirrored.Filled.Logout,
+                    textColor = MaterialTheme.colorScheme.error,
+                    onClick = { showLogoutConfirm = true }
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
-}
+
 
 @Composable
 fun ProfileScreen(
@@ -724,52 +917,92 @@ fun ProfileScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
-            Text(
-                "Profile",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Text("Profile Settings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Surface(
+            modifier = Modifier.size(100.dp),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Default.Person,
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
         ) {
             Column(
-                modifier = Modifier.padding(20.dp),
+                modifier = Modifier.padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                Text(
+                    "Account Details",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+
                 OutlinedTextField(
                     value = newName,
                     onValueChange = { newName = it },
-                    label = { Text("Display Name") },
+                    label = { Text("Business / Owner Name") },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(16.dp),
+                    leadingIcon = { Icon(Icons.Default.Badge, contentDescription = null) }
                 )
+
+                OutlinedTextField(
+                    value = user?.email ?: "",
+                    onValueChange = { },
+                    label = { Text("Registered Email") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    enabled = false,
+                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) }
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Button(
                     onClick = {
                         onUpdateName(newName)
                         android.widget.Toast.makeText(context, "Profile updated successfully", android.widget.Toast.LENGTH_SHORT).show()
                     },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
-                    Text("Save Changes")
+                    Icon(Icons.Default.Save, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Save Changes", style = MaterialTheme.typography.titleMedium)
                 }
             }
         }
     }
 }
+
 
 @Composable
 fun SecuritySettingsScreen(
@@ -799,31 +1032,40 @@ fun SecuritySettingsScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
-            Text(
-                "Security",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Text("Security Settings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SettingsGroup(title = "App Lock") {
+        SettingsGroup(title = "App Protection") {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = 12.dp, horizontal = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    }
+                }
+                Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Enable App Lock", style = MaterialTheme.typography.bodyLarge)
+                    Text("App Lock", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text(
-                        "Require PIN or Biometric to open the app",
+                        "Require PIN or Biometric to open",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -842,24 +1084,35 @@ fun SecuritySettingsScreen(
             }
 
             if (isLockEnabled) {
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingsItem(
-                    title = "Change PIN",
+                    title = "Update PIN",
+                    subtitle = "Change your 4-digit security PIN",
                     icon = Icons.Default.Password,
                     onClick = { showPinDialog = true }
                 )
                 
                 if (canUseBiometric) {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp),
+                            .padding(vertical = 12.dp, horizontal = 12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Surface(
+                            modifier = Modifier.size(40.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Fingerprint, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Use Biometrics", style = MaterialTheme.typography.bodyLarge)
+                            Text("Biometric Login", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Text(
                                 "Use Fingerprint or Face ID",
                                 style = MaterialTheme.typography.bodySmall,
@@ -879,6 +1132,7 @@ fun SecuritySettingsScreen(
         }
     }
 }
+
 
 @Composable
 fun SetPinDialog(
@@ -938,11 +1192,14 @@ fun ReceiptSettingsScreen(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
-            ScreenHeader(title = "Receipt Settings")
+            Text("Receipt Designer", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
 
         Column(
@@ -953,12 +1210,12 @@ fun ReceiptSettingsScreen(
                 ReceiptTextField(label = "Business Name", value = businessName, onValueChange = { businessName = it }, icon = Icons.Default.Business)
                 ReceiptTextField(label = "Address", value = businessAddress, onValueChange = { businessAddress = it }, icon = Icons.Default.LocationOn)
                 ReceiptTextField(label = "Phone Number", value = businessPhone, onValueChange = { businessPhone = it }, icon = Icons.Default.Phone)
-                ReceiptTextField(label = "NTN No", value = ntnNo, onValueChange = { ntnNo = it }, icon = Icons.Default.Numbers)
+                ReceiptTextField(label = "NTN No (Optional)", value = ntnNo, onValueChange = { ntnNo = it }, icon = Icons.Default.Numbers)
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            SettingsGroup(title = "Receipt Customization") {
+            SettingsGroup(title = "Receipt Footer") {
                 ReceiptTextField(label = "Sales Person Name", value = salesPerson, onValueChange = { salesPerson = it }, icon = Icons.Default.Person)
                 ReceiptTextField(label = "Thank You Note", value = thankYouNote, onValueChange = { thankYouNote = it }, icon = Icons.Default.RateReview, isSingleLine = false)
             }
@@ -979,13 +1236,14 @@ fun ReceiptSettingsScreen(
             ) {
                 Icon(Icons.Default.Save, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Save Settings", style = MaterialTheme.typography.titleMedium)
+                Text("Save Configuration", style = MaterialTheme.typography.titleMedium)
             }
             
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
+
 
 @Composable
 fun PrinterSettingsScreen(context: android.content.Context, onBack: () -> Unit) {
@@ -1016,7 +1274,7 @@ fun PrinterSettingsScreen(context: android.content.Context, onBack: () -> Unit) 
     if (showPrinterDialog) {
         AlertDialog(
             onDismissRequest = { showPrinterDialog = false },
-            title = { Text("Select Printer") },
+            title = { Text("Available Printers") },
             text = {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     if (pairedDevices.isEmpty()) {
@@ -1026,6 +1284,7 @@ fun PrinterSettingsScreen(context: android.content.Context, onBack: () -> Unit) 
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
                                     .clickable {
                                         selectedPrinterAddress = device.address
                                         showPrinterDialog = false
@@ -1033,17 +1292,25 @@ fun PrinterSettingsScreen(context: android.content.Context, onBack: () -> Unit) 
                                     .padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.Print, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Surface(
+                                    modifier = Modifier.size(40.dp),
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.primaryContainer
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Default.Print, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                    }
+                                }
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
                                     @SuppressLint("MissingPermission")
                                     val deviceName = device.name ?: "Unknown Device"
-                                    Text(deviceName, style = MaterialTheme.typography.bodyLarge)
+                                    Text(deviceName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
                                     Text(device.address, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                                 }
                                 if (selectedPrinterAddress == device.address) {
                                     Spacer(modifier = Modifier.weight(1f))
-                                    Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                 }
                             }
                         }
@@ -1059,108 +1326,107 @@ fun PrinterSettingsScreen(context: android.content.Context, onBack: () -> Unit) 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .padding(horizontal = 16.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
-            ScreenHeader(title = "Printer Settings")
+            Text("Printer Configuration", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp)
-        ) {
-            SettingsGroup(title = "Printer Configuration") {
-                SettingsItem(
-                    title = "Connect Printer",
-                    subtitle = if (selectedPrinterAddress.isEmpty()) "Select your Bluetooth printer" else "Connected to: $selectedPrinterAddress",
-                    icon = Icons.Default.Bluetooth,
-                    onClick = {
-                        if (com.example.toycity.utils.PrinterManager.hasBluetoothPermissions(context)) {
-                            if (com.example.toycity.utils.PrinterManager.isBluetoothEnabled(context)) {
-                                pairedDevices.clear()
-                                pairedDevices.addAll(com.example.toycity.utils.PrinterManager.getPairedDevices(context))
-                                showPrinterDialog = true
-                            } else {
-                                android.widget.Toast.makeText(context, "Please enable Bluetooth", android.widget.Toast.LENGTH_SHORT).show()
-                            }
+        SettingsGroup(title = "Hardware Connection") {
+            SettingsItem(
+                title = "Select Bluetooth Printer",
+                subtitle = if (selectedPrinterAddress.isEmpty()) "Choose your thermal printer" else "Linked to: $selectedPrinterAddress",
+                icon = Icons.Default.Bluetooth,
+                onClick = {
+                    if (com.example.toycity.utils.PrinterManager.hasBluetoothPermissions(context)) {
+                        if (com.example.toycity.utils.PrinterManager.isBluetoothEnabled(context)) {
+                            pairedDevices.clear()
+                            pairedDevices.addAll(com.example.toycity.utils.PrinterManager.getPairedDevices(context))
+                            showPrinterDialog = true
                         } else {
-                            val permissions = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                                arrayOf(
-                                    android.Manifest.permission.BLUETOOTH_SCAN,
-                                    android.Manifest.permission.BLUETOOTH_CONNECT
-                                )
-                            } else {
-                                arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION)
-                            }
-                            permissionLauncher.launch(permissions)
+                            android.widget.Toast.makeText(context, "Please enable Bluetooth", android.widget.Toast.LENGTH_SHORT).show()
                         }
-                    }
-                )
-                
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp, horizontal = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        modifier = Modifier.size(40.dp),
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.Straighten, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    } else {
+                        val permissions = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                            arrayOf(
+                                android.Manifest.permission.BLUETOOTH_SCAN,
+                                android.Manifest.permission.BLUETOOTH_CONNECT
+                            )
+                        } else {
+                            arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION)
                         }
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Page Size", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text("Choose your paper width", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                    }
-                    
-                    Row {
-                        FilterChip(
-                            selected = pageSize == "80mm",
-                            onClick = { pageSize = "80mm" },
-                            label = { Text("80mm") }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        FilterChip(
-                            selected = pageSize == "58mm",
-                            onClick = { pageSize = "58mm" },
-                            label = { Text("58mm") }
-                        )
+                        permissionLauncher.launch(permissions)
                     }
                 }
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            Button(
-                onClick = {
-                    SecurityManager.savePrinterSettings(context, selectedPrinterAddress, pageSize)
-                    android.widget.Toast.makeText(context, "Printer settings saved", android.widget.Toast.LENGTH_SHORT).show()
-                    onBack()
-                },
+            )
+            
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(16.dp)
+                    .padding(vertical = 12.dp, horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Save, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Save & Apply", style = MaterialTheme.typography.titleMedium)
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Straighten, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    }
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Paper Size", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("Standard thermal width", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                }
+                
+                Row {
+                    FilterChip(
+                        selected = pageSize == "80mm",
+                        onClick = { pageSize = "80mm" },
+                        label = { Text("80mm") }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    FilterChip(
+                        selected = pageSize == "58mm",
+                        onClick = { pageSize = "58mm" },
+                        label = { Text("58mm") }
+                    )
+                }
             }
-            
-            Spacer(modifier = Modifier.height(32.dp))
         }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        Button(
+            onClick = {
+                SecurityManager.savePrinterSettings(context, selectedPrinterAddress, pageSize)
+                android.widget.Toast.makeText(context, "Printer settings saved", android.widget.Toast.LENGTH_SHORT).show()
+                onBack()
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Icon(Icons.Default.Save, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Apply Settings", style = MaterialTheme.typography.titleMedium)
+        }
+        
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
+
 
 
 @Composable
@@ -1196,36 +1462,55 @@ fun DataManagementScreen(onNavigate: (SettingsView) -> Unit, onBack: () -> Unit)
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
-            Text(
-                "Data Management",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Text("Data & Storage", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        SettingsGroup(title = "Storage Actions") {
+
+        SettingsGroup(title = "Backup Operations") {
             SettingsItem(
-                title = "Export Backup",
-                subtitle = "Create a copy of your data",
+                title = "Export Database",
+                subtitle = "Create a secure backup file",
                 icon = Icons.Default.CloudDownload,
                 onClick = { onNavigate(SettingsView.BACKUP) }
             )
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             SettingsItem(
-                title = "Import Backup",
-                subtitle = "Restore data from a file",
+                title = "Import Database",
+                subtitle = "Restore records from backup",
                 icon = Icons.Default.CloudUpload,
                 onClick = { onNavigate(SettingsView.RESTORE) }
             )
         }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f))
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(
+                    "Always backup your data before performing a factory reset or switching devices.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
+        }
     }
 }
+
 
 @Composable
 fun BackupScreen(onExportData: () -> Unit, onBack: () -> Unit) {
@@ -1234,56 +1519,65 @@ fun BackupScreen(onExportData: () -> Unit, onBack: () -> Unit) {
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
-            Text(
-                "Backup",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Text("Cloud Backup", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
+
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(28.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f))
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Icon(
-                    Icons.Default.CloudDownload,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(48.dp)
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    "Export Your Data",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    "Create a backup file of all your transactions, products, and records. You can use this file to restore your data later or on another device.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-                Button(
-                    onClick = {
-                        onExportData()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+            Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Surface(
+                    modifier = Modifier.size(80.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer
                 ) {
-                    Text("Export Now")
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.CloudDownload,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(40.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    "Secure Data Export",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    "Create a complete snapshot of your business records. This file contains all transactions, inventory data, and settings.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(32.dp))
+                Button(
+                    onClick = onExportData,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(Icons.Default.Backup, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Generate Backup File", style = MaterialTheme.typography.titleMedium)
                 }
             }
         }
     }
 }
+
 
 @Composable
 fun RestoreScreen(onImportData: () -> Unit, onBack: () -> Unit) {
@@ -1292,71 +1586,82 @@ fun RestoreScreen(onImportData: () -> Unit, onBack: () -> Unit) {
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
-            Text(
-                "Restore",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Text("Data Restoration", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
+
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(28.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f))
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Icon(
-                    Icons.Default.CloudUpload,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.size(48.dp)
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    "Restore Your Data",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    "Select a previously exported backup file to restore your data. Warning: This will overwrite your current data.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Surface(
+                    modifier = Modifier.size(80.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.CloudUpload,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(40.dp)
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    "Restore Database",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    "Warning: Importing a backup will replace all current data. Ensure you have the correct .json backup file.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(32.dp))
                 Button(
                     onClick = onImportData,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(16.dp)
                 ) {
-                    Text("Select Backup File")
+                    Icon(Icons.Default.UploadFile, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Select Backup File", style = MaterialTheme.typography.titleMedium)
                 }
             }
         }
     }
 }
 
+
 @Composable
 fun SettingsGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             title,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(start = 16.dp, bottom = 4.dp)
         )
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
         ) {
             Column(modifier = Modifier.padding(8.dp)) {
                 content()
@@ -1364,6 +1669,7 @@ fun SettingsGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
         }
     }
 }
+
 
 @Composable
 fun SettingsItem(
@@ -1377,25 +1683,25 @@ fun SettingsItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
             .padding(vertical = 12.dp, horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
-            modifier = Modifier.size(40.dp),
-            shape = CircleShape,
+            modifier = Modifier.size(44.dp),
+            shape = RoundedCornerShape(12.dp),
             color = if (textColor == MaterialTheme.colorScheme.error) 
                 MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
             else 
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     icon, 
                     contentDescription = null, 
                     tint = if (textColor == MaterialTheme.colorScheme.error) textColor else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             }
         }
@@ -1407,13 +1713,13 @@ fun SettingsItem(
                 title, 
                 style = MaterialTheme.typography.titleMedium, 
                 color = textColor, 
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.Bold
             )
             if (subtitle != null) {
                 Text(
                     subtitle, 
                     style = MaterialTheme.typography.bodySmall, 
-                    color = MaterialTheme.colorScheme.outline
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
             }
         }
@@ -1422,9 +1728,11 @@ fun SettingsItem(
             Icon(
                 Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.outline,
+                tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
                 modifier = Modifier.size(20.dp)
             )
         }
     }
 }
+
+

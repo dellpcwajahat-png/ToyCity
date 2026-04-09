@@ -1,6 +1,7 @@
 package com.example.toycity.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,7 +29,7 @@ import java.util.Date
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExpensesScreen(
-    viewModel: FinancialViewModel = viewModel(),
+    viewModel: com.example.toycity.ui.FinancialViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
     type: String = "All",
     currentMonth: String,
     onMonthSelected: (String) -> Unit
@@ -170,6 +171,7 @@ fun ExpensesScreen(
         AddExpenseDialog(
             type = initialType,
             isAllView = type == "All",
+            customCategories = uiState.customCategories,
             onDismiss = { showAddDialog = false },
             onConfirm = { amount, note, timestamp, selectedType ->
                 viewModel.addCashTransaction(amount, note, false, timestamp, selectedType)
@@ -184,6 +186,7 @@ fun ExpensesScreen(
 fun AddExpenseDialog(
     type: String, 
     isAllView: Boolean = false,
+    customCategories: List<String> = emptyList(),
     onDismiss: () -> Unit, 
     onConfirm: (Double, String, Long, String) -> Unit
 ) {
@@ -218,22 +221,18 @@ fun AddExpenseDialog(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (isAllView) {
                     Text("Category", style = MaterialTheme.typography.labelMedium)
-                    Row(
+                    FlowRow(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        FilterChip(
-                            selected = selectedType == "Operational",
-                            onClick = { selectedType = "Operational" },
-                            label = { Text("Operational") },
-                            modifier = Modifier.weight(1f)
-                        )
-                        FilterChip(
-                            selected = selectedType == "Restock",
-                            onClick = { selectedType = "Restock" },
-                            label = { Text("Restock") },
-                            modifier = Modifier.weight(1f)
-                        )
+                        val allCategories = listOf("Operational", "Restock") + customCategories
+                        allCategories.distinct().forEach { category ->
+                            FilterChip(
+                                selected = selectedType == category,
+                                onClick = { selectedType = category },
+                                label = { Text(category) }
+                            )
+                        }
                     }
                 }
 

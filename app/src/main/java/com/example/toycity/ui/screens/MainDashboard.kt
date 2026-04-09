@@ -53,6 +53,7 @@ fun MainDashboard(
     authViewModel: AuthViewModel = viewModel()
 ) {
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Home, 1: Summary, 2: Top Selling, 3: Stock, 4: Expenses, 5: Categories, 6: Customers, 8: Counter, 9: Settings, 10: Ledger, 11: Suppliers, 12: Op Expenses, 13: Restock Expenses, 14: Cash in hand, 15: Cash In/Out
+    var currentSettingsView by remember { mutableStateOf(SettingsView.MAIN) }
     var currentMonth by remember { mutableStateOf(Formatter.formatMonth(Date())) }
     val user by authViewModel.user.collectAsState()
     val displayName by authViewModel.displayName.collectAsState()
@@ -218,7 +219,16 @@ fun MainDashboard(
                             5 -> "Categories"
                             6 -> "Customers"
                             8 -> "Point of Sale"
-                            9 -> "Settings"
+                            9 -> when(currentSettingsView) {
+                                SettingsView.MAIN -> "Settings"
+                                SettingsView.PROFILE -> "Profile Settings"
+                                SettingsView.SECURITY -> "App Security"
+                                SettingsView.DATA_MANAGEMENT -> "Data & Storage"
+                                SettingsView.BACKUP -> "Cloud Backup"
+                                SettingsView.RESTORE -> "Data Restoration"
+                                SettingsView.RECEIPT -> "Receipt Designer"
+                                SettingsView.PRINTER -> "Printer Configuration"
+                            }
                             10 -> "Financial Ledger"
                             11 -> "Debt Management"
                             14 -> "Cash in Hand"
@@ -233,8 +243,26 @@ fun MainDashboard(
                         )
                     },
                     navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        val isSettingsSubView = selectedTab == 9 && currentSettingsView != SettingsView.MAIN
+                        val isOtherSubTab = selectedTab != 0 && selectedTab != 9
+                        
+                        if (isSettingsSubView || isOtherSubTab) {
+                            IconButton(onClick = {
+                                if (isSettingsSubView) {
+                                    when (currentSettingsView) {
+                                        SettingsView.BACKUP, SettingsView.RESTORE -> currentSettingsView = SettingsView.DATA_MANAGEMENT
+                                        else -> currentSettingsView = SettingsView.MAIN
+                                    }
+                                } else {
+                                    selectedTab = 0
+                                }
+                            }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            }
+                        } else {
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                Icon(Icons.Default.Menu, contentDescription = "Menu")
+                            }
                         }
                     },
                     actions = {
@@ -335,6 +363,8 @@ fun MainDashboard(
                     6 -> CustomersScreen()
                     8 -> CounterScreen(viewModel = viewModel)
                     9 -> SettingsScreen(
+                        currentView = currentSettingsView,
+                        onViewChange = { currentSettingsView = it },
                         authViewModel = authViewModel,
                         onExportData = {
                             scope.launch {
@@ -359,11 +389,6 @@ fun MainDashboard(
                                 id = "All-Time",
                                 totalSales = allRecords.sumOf { it.totalSales },
                                 operatingExpenses = allRecords.sumOf { it.operatingExpenses },
-                                expenseCategories = allRecords.flatMap { it.expenseCategories.asIterable() }
-                                    .groupBy({ it.key }, { it.value })
-                                    .mapValues { it.value.sum() },
-                                customerReceivables = allRecords.filter { it.totalSales > 0 || it.customerReceivables > 0 }
-                                    .maxByOrNull { it.id }?.customerReceivables ?: 0.0,
                                 inventoryData = com.example.toycity.data.InventoryData(
                                     restockInvestment = allRecords.sumOf { it.inventoryData.restockInvestment },
                                     cogs = allRecords.sumOf { it.inventoryData.cogs }
@@ -388,124 +413,6 @@ fun MainDashboard(
                 )
             }
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ExpenseCategoriesScreen(
-    viewModel: com.example.toycity.ui.FinancialViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
-    onBack: () -> Unit
-) {
-    val uiState by viewModel.uiState.collectAsState()
-    var showAddDialog by remember { mutableStateOf(false) }
-    var newCategoryName by remember { mutableStateOf("") }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Expense Categories") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Add Category")
-            }
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            Text(
-                "Custom Categories",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(16.dp),
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                )
-            ) {
-                Column(modifier = Modifier.padding(8.dp)) {
-                    uiState.customCategories.forEach { category ->
-                        ListItem(
-                            headlineContent = { Text(category) },
-                            trailingContent = {
-                                IconButton(onClick = { viewModel.removeCustomCategory(category) }) {
-                                    Icon(
-                                        Icons.Default.Delete,
-                                        contentDescription = "Delete",
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                            },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                        )
-                        if (category != uiState.customCategories.last()) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                            )
-                        }
-                    }
-                }
-            }
-
-            Text(
-                "These categories will be available when recording new expenses.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(16.dp)
-            )
-        }
-    }
-
-    if (showAddDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddDialog = false },
-            title = { Text("New Category") },
-            text = {
-                OutlinedTextField(
-                    value = newCategoryName,
-                    onValueChange = { newCategoryName = it },
-                    label = { Text("Category Name") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (newCategoryName.isNotBlank()) {
-                            viewModel.addCustomCategory(newCategoryName.trim())
-                            newCategoryName = ""
-                            showAddDialog = false
-                        }
-                    }
-                ) {
-                    Text("Add")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
     }
 }
 
@@ -679,23 +586,24 @@ fun MonthPickerDialog(
 }
 
 enum class SettingsView {
-    MAIN, PROFILE, SECURITY, DATA_MANAGEMENT, BACKUP, RESTORE, RECEIPT, PRINTER, EXPENSE_CATEGORIES
+    MAIN, PROFILE, SECURITY, DATA_MANAGEMENT, BACKUP, RESTORE, RECEIPT, PRINTER
 }
 
 @Composable
 fun SettingsScreen(
+    currentView: SettingsView,
+    onViewChange: (SettingsView) -> Unit,
     authViewModel: AuthViewModel,
     onExportData: () -> Unit,
     onImportData: () -> Unit,
     context: android.content.Context
 ) {
-    var currentView by remember { mutableStateOf(SettingsView.MAIN) }
     val user by authViewModel.user.collectAsState()
 
     BackHandler(enabled = currentView != SettingsView.MAIN) {
         when (currentView) {
-            SettingsView.BACKUP, SettingsView.RESTORE -> currentView = SettingsView.DATA_MANAGEMENT
-            else -> currentView = SettingsView.MAIN
+            SettingsView.BACKUP, SettingsView.RESTORE -> onViewChange(SettingsView.DATA_MANAGEMENT)
+            else -> onViewChange(SettingsView.MAIN)
         }
     }
 
@@ -713,40 +621,30 @@ fun SettingsScreen(
         when (view) {
             SettingsView.MAIN -> SettingsMainView(
                 user = user,
-                onNavigate = { currentView = it },
+                onNavigate = { onViewChange(it) },
                 onLogout = { authViewModel.signOut(context) }
             )
             SettingsView.PROFILE -> ProfileScreen(
                 user = user,
-                onUpdateName = { authViewModel.updateDisplayName(it) },
-                onBack = { currentView = SettingsView.MAIN }
+                onUpdateName = { authViewModel.updateDisplayName(it) }
             )
             SettingsView.SECURITY -> SecuritySettingsScreen(
-                context = context,
-                onBack = { currentView = SettingsView.MAIN }
+                context = context
             )
             SettingsView.DATA_MANAGEMENT -> DataManagementScreen(
-                onNavigate = { currentView = it },
-                onBack = { currentView = SettingsView.MAIN }
+                onNavigate = { onViewChange(it) }
             )
             SettingsView.BACKUP -> BackupScreen(
-                onExportData = onExportData,
-                onBack = { currentView = SettingsView.DATA_MANAGEMENT }
+                onExportData = onExportData
             )
             SettingsView.RESTORE -> RestoreScreen(
-                onImportData = onImportData,
-                onBack = { currentView = SettingsView.DATA_MANAGEMENT }
+                onImportData = onImportData
             )
             SettingsView.RECEIPT -> ReceiptSettingsScreen(
-                context = context,
-                onBack = { currentView = SettingsView.MAIN }
+                context = context
             )
             SettingsView.PRINTER -> PrinterSettingsScreen(
-                context = context,
-                onBack = { currentView = SettingsView.MAIN }
-            )
-            SettingsView.EXPENSE_CATEGORIES -> ExpenseCategoriesScreen(
-                onBack = { currentView = SettingsView.MAIN }
+                context = context
             )
         }
     }
@@ -790,8 +688,6 @@ fun SettingsMainView(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ) {
-        ScreenHeader(title = "Settings")
-
         // User Profile Header Card
         Card(
             modifier = Modifier
@@ -860,12 +756,6 @@ fun SettingsMainView(
             // Hardware & Customization
             SettingsGroup(title = "Business Setup") {
                 SettingsItem(
-                    title = "Expense Categories",
-                    subtitle = "Manage custom business expenses",
-                    icon = Icons.Default.Category,
-                    onClick = { onNavigate(SettingsView.EXPENSE_CATEGORIES) }
-                )
-                SettingsItem(
                     title = "Printer Settings",
                     subtitle = "Bluetooth & Paper Size",
                     icon = Icons.Default.Print,
@@ -909,8 +799,7 @@ fun SettingsMainView(
 @Composable
 fun ProfileScreen(
     user: com.google.firebase.auth.FirebaseUser?,
-    onUpdateName: (String) -> Unit,
-    onBack: () -> Unit
+    onUpdateName: (String) -> Unit
 ) {
     var newName by remember { mutableStateOf(user?.displayName ?: "") }
     val context = LocalContext.current
@@ -921,16 +810,6 @@ fun ProfileScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
-            Text("Profile Settings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        }
-
         Spacer(modifier = Modifier.height(24.dp))
 
         Surface(
@@ -1007,8 +886,7 @@ fun ProfileScreen(
 
 @Composable
 fun SecuritySettingsScreen(
-    context: android.content.Context,
-    onBack: () -> Unit
+    context: android.content.Context
 ) {
     var isLockEnabled by remember { mutableStateOf(SecurityManager.isAppLockEnabled(context)) }
     var isBiometricEnabled by remember { mutableStateOf(SecurityManager.isBiometricEnabled(context)) }
@@ -1034,43 +912,6 @@ fun SecuritySettingsScreen(
             .padding(20.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        // Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 24.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                onClick = onBack,
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier.size(48.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
-                Text(
-                    "App Security",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    "Manage your privacy & protection",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
         // Hero Card for Security Status
         Card(
             modifier = Modifier
@@ -1371,8 +1212,7 @@ fun SetPinDialog(
 
 @Composable
 fun ReceiptSettingsScreen(
-    context: android.content.Context,
-    onBack: () -> Unit
+    context: android.content.Context
 ) {
     val settings = remember { SecurityManager.getReceiptSettings(context) }
     var businessName by remember { mutableStateOf(settings["name"] ?: "") }
@@ -1387,19 +1227,9 @@ fun ReceiptSettingsScreen(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
-            Text("Receipt Designer", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        }
-
         Column(
             modifier = Modifier
-                .padding(horizontal = 16.dp)
+                .padding(16.dp)
         ) {
             SettingsGroup(title = "Business Information") {
                 ReceiptTextField(label = "Business Name", value = businessName, onValueChange = { businessName = it }, icon = Icons.Default.Business)
@@ -1441,7 +1271,7 @@ fun ReceiptSettingsScreen(
 
 
 @Composable
-fun PrinterSettingsScreen(context: android.content.Context, onBack: () -> Unit) {
+fun PrinterSettingsScreen(context: android.content.Context) {
     val settings: Map<String, String> = remember { SecurityManager.getPrinterSettings(context) }
     var selectedPrinterAddress by remember { mutableStateOf(settings["address"] ?: "") }
     var pageSize by remember { mutableStateOf(settings["pageSize"] ?: "80mm") }
@@ -1523,16 +1353,6 @@ fun PrinterSettingsScreen(context: android.content.Context, onBack: () -> Unit) 
             .fillMaxSize()
             .padding(horizontal = 16.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
-            Text("Printer Configuration", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        }
-
         SettingsGroup(title = "Hardware Connection") {
             SettingsItem(
                 title = "Select Bluetooth Printer",
@@ -1606,7 +1426,6 @@ fun PrinterSettingsScreen(context: android.content.Context, onBack: () -> Unit) 
             onClick = {
                 SecurityManager.savePrinterSettings(context, selectedPrinterAddress, pageSize)
                 android.widget.Toast.makeText(context, "Printer settings saved", android.widget.Toast.LENGTH_SHORT).show()
-                onBack()
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -1651,22 +1470,12 @@ fun ReceiptTextField(
 }
 
 @Composable
-fun DataManagementScreen(onNavigate: (SettingsView) -> Unit, onBack: () -> Unit) {
+fun DataManagementScreen(onNavigate: (SettingsView) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
-            Text("Data & Storage", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        }
-
         SettingsGroup(title = "Backup Operations") {
             SettingsItem(
                 title = "Export Database",
@@ -1708,22 +1517,12 @@ fun DataManagementScreen(onNavigate: (SettingsView) -> Unit, onBack: () -> Unit)
 
 
 @Composable
-fun BackupScreen(onExportData: () -> Unit, onBack: () -> Unit) {
+fun BackupScreen(onExportData: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
-            Text("Cloud Backup", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        }
-
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(28.dp),
@@ -1775,22 +1574,12 @@ fun BackupScreen(onExportData: () -> Unit, onBack: () -> Unit) {
 
 
 @Composable
-fun RestoreScreen(onImportData: () -> Unit, onBack: () -> Unit) {
+fun RestoreScreen(onImportData: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
-            Text("Data Restoration", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        }
-
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(28.dp),

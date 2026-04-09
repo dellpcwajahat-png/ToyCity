@@ -221,8 +221,7 @@ fun CashTransactionDialog(
 
                 if (!isCashIn) {
                     Text("Category", style = MaterialTheme.typography.labelMedium)
-                    val customCategories by viewModel.uiState.collectAsState()
-                    val allCategories = listOf("Other", "Restock", "Operational") + customCategories.customCategories
+                    val allCategories = listOf("Other", "Restock", "Operational", "Rent", "Utilities", "Salaries", "Marketing")
                     
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),

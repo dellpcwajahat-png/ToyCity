@@ -9,8 +9,6 @@ data class FinancialRecord(
     val startingCash: Double = 0.0,
     val totalSales: Double = 0.0,
     val operatingExpenses: Double = 0.0,
-    val expenseCategories: Map<String, Double> = emptyMap(), // Categorized expenses
-    val customerReceivables: Double = 0.0,
     val inventoryData: InventoryData = InventoryData(),
     val loans: List<Loan> = listOf(
         Loan(lenderName = "Lender M"),
@@ -19,9 +17,9 @@ data class FinancialRecord(
     val cashTransactions: List<CashTransaction> = emptyList(), // Daily Cash In/Out
     val lastUpdated: Long = System.currentTimeMillis()
 ) {
-    // Total Expenses = Sum of operatingExpenses (legacy) + expenseCategories
+    // Total Expenses = Operating Expenses (legacy) + Manual transactions
     val totalExpenses: Double
-        get() = operatingExpenses + expenseCategories.values.sum()
+        get() = operatingExpenses
 
     // Net Profit = Total Sales - Total Expenses - COGS
     val netProfit: Double

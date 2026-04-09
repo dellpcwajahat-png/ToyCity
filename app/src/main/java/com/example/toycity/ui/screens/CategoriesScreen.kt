@@ -13,11 +13,10 @@ import com.example.toycity.ui.components.ScreenHeader
 fun CategoriesScreen() {
     Column(
         modifier = Modifier
-            .fillMaxSize(),
+            .fillMaxSize()
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        ScreenHeader(title = "Categories")
-
         Column(
             modifier = Modifier
                 .weight(1f)

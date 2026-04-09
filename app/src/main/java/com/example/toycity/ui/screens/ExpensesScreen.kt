@@ -1,15 +1,12 @@
 package com.example.toycity.ui.screens
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.toycity.ui.components.ScreenHeader
-
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -51,13 +48,12 @@ fun ExpensesScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            ScreenHeader(title = if (type == "All") "All Expenses" else "$type Expenses")
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 FilterChip(
@@ -74,24 +70,6 @@ fun ExpensesScreen(
                         }
                     } else null
                 )
-
-                if (!isAllTimeView) {
-                    IconButton(onClick = { onMonthSelected(currentMonth) }) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                currentMonth,
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Icon(
-                                Icons.Default.CalendarMonth,
-                                contentDescription = "Pick Month",
-                                modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
             }
 
             val expenseTransactions = remember(uiState, allRecords, isAllTimeView, type) {
@@ -164,14 +142,12 @@ fun ExpensesScreen(
 
     if (showAddDialog) {
         val initialType = when (type) {
-            "Operational" -> "Operational"
             "Restock" -> "Restock"
             else -> "Operational"
         }
         AddExpenseDialog(
             type = initialType,
             isAllView = type == "All",
-            customCategories = uiState.customCategories,
             onDismiss = { showAddDialog = false },
             onConfirm = { amount, note, timestamp, selectedType ->
                 viewModel.addCashTransaction(amount, note, false, timestamp, selectedType)
@@ -186,7 +162,6 @@ fun ExpensesScreen(
 fun AddExpenseDialog(
     type: String, 
     isAllView: Boolean = false,
-    customCategories: List<String> = emptyList(),
     onDismiss: () -> Unit, 
     onConfirm: (Double, String, Long, String) -> Unit
 ) {
@@ -225,8 +200,8 @@ fun AddExpenseDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val allCategories = listOf("Operational", "Restock") + customCategories
-                        allCategories.distinct().forEach { category ->
+                        val allCategories = listOf("Operational", "Restock", "Rent", "Utilities", "Salaries", "Marketing", "Other")
+                        allCategories.forEach { category ->
                             FilterChip(
                                 selected = selectedType == category,
                                 onClick = { selectedType = category },

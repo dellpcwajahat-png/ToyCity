@@ -55,10 +55,8 @@ fun CashInHandScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .padding(top = 16.dp)
         ) {
-            // Moved ScreenHeader inside the main column and ensured no extra padding at top
-            ScreenHeader(title = "Cash in Hand")
-
             Card(
                 modifier = Modifier
                     .fillMaxWidth()

@@ -26,6 +26,7 @@ import com.example.toycity.data.InventoryItem
 import com.example.toycity.ui.FinancialViewModel
 import com.example.toycity.ui.components.ScreenHeader
 import com.example.toycity.utils.Formatter
+import com.example.toycity.utils.PdfGenerator
 import java.util.*
 
 @Composable
@@ -34,6 +35,7 @@ fun InventoryScreen(
     viewModel: FinancialViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
     var showAddDialog by remember { mutableStateOf(false) }
     var itemToDelete by remember { mutableStateOf<InventoryItem?>(null) }
     var searchQuery by remember { mutableStateOf("") }
@@ -47,9 +49,11 @@ fun InventoryScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            ScreenHeader(title = "Stock Inventory")
-
-            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .padding(top = 16.dp)
+            ) {
                 // Search Bar
                 OutlinedTextField(
                     value = searchQuery,
@@ -87,6 +91,17 @@ fun InventoryScreen(
                     }
                 }
             }
+        }
+
+        FloatingActionButton(
+            onClick = { PdfGenerator.generateBarcodeLabels(context, uiState.inventoryData.items) },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 96.dp, end = 24.dp),
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+        ) {
+            Icon(Icons.Default.Print, contentDescription = "Print Labels")
         }
 
         FloatingActionButton(

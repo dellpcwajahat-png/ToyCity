@@ -54,13 +54,11 @@ fun AnalyticsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            ScreenHeader(title = "Business Dashboard")
-        }
-        item {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 16.dp)
+                    .padding(top = 16.dp),
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -120,15 +118,6 @@ fun AnalyticsScreen(
                 uiState.cashInDrawer
             }
             
-            val customerBalance = if (isAllTimeView) {
-                // Find latest month that actually has some activity
-                allRecords.filter { it.totalSales > 0 || it.customerReceivables > 0 }
-                    .maxByOrNull { Formatter.parseMonth(it.id) ?: java.util.Date(0) }
-                    ?.customerReceivables ?: 0.0
-            } else {
-                uiState.customerReceivables
-            }
-            
             val totalCOGS = if (isAllTimeView) allTimeCOGS else uiState.inventoryData.cogs
             val totalRestock = if (isAllTimeView) allTimeRestock else uiState.inventoryData.restockInvestment
 
@@ -175,10 +164,10 @@ fun AnalyticsScreen(
                     )
                     MetricCardItem(
                         Modifier.weight(1f),
-                        "Receivables",
-                        Formatter.formatCurrency(customerBalance),
-                        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
-                        Icons.Default.People
+                        "COGS",
+                        Formatter.formatCurrency(totalCOGS),
+                        MaterialTheme.colorScheme.secondaryContainer,
+                        Icons.Default.Inventory
                     )
                 }
             }

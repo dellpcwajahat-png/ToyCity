@@ -102,22 +102,7 @@ object PdfGenerator {
             addDetailRow(detailTable, "Cost of Goods (COGS)", record.inventoryData.cogs, pageSize58mm)
             addDetailRow(detailTable, "Operating Expenses", record.totalExpenses, pageSize58mm)
             addDetailRow(detailTable, "Restock Investment", record.inventoryData.restockInvestment, pageSize58mm)
-            addDetailRow(detailTable, "Customer Receivables", record.customerReceivables, pageSize58mm)
             document.add(detailTable.setMarginBottom(15f))
-
-            // Expenses Categories
-            if (record.expenseCategories.isNotEmpty()) {
-                document.add(Paragraph("Expenses by Category")
-                    .simulateBold()
-                    .setFontSize(if (pageSize58mm) 10f else 12f)
-                    .setMarginBottom(5f))
-                
-                val expenseTable = Table(UnitValue.createPercentArray(floatArrayOf(1f, 1f))).useAllAvailableWidth()
-                record.expenseCategories.forEach { (cat, amount) ->
-                    addDetailRow(expenseTable, cat, amount, pageSize58mm)
-                }
-                document.add(expenseTable.setMarginBottom(15f))
-            }
 
             // Loans Status
             if (record.loans.isNotEmpty()) {
@@ -308,6 +293,62 @@ object PdfGenerator {
 
             document.close()
             Toast.makeText(context, "Receipt Saved: $filePathDisplay", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun generateBarcodeLabels(context: Context, items: List<com.example.toycity.data.InventoryItem>) {
+        val fileName = "BarcodeLabels_${System.currentTimeMillis()}.pdf"
+        try {
+            val outputStream: OutputStream?
+            val filePathDisplay: String
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                    put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                }
+                val resolver = context.contentResolver
+                val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                outputStream = uri?.let { resolver.openOutputStream(it) }
+                filePathDisplay = "Downloads/$fileName"
+            } else {
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val file = File(downloadsDir, fileName)
+                outputStream = FileOutputStream(file)
+                filePathDisplay = file.absolutePath
+            }
+
+            if (outputStream == null) throw Exception("Failed to open output stream")
+
+            val writer = PdfWriter(outputStream)
+            val pdf = PdfDocument(writer)
+            val document = Document(pdf, PageSize.A4)
+            document.setMargins(20f, 20f, 20f, 20f)
+
+            document.add(Paragraph("Inventory Barcode Labels")
+                .simulateBold()
+                .setFontSize(18f)
+                .setFontColor(PRIMARY_COLOR)
+                .setMarginBottom(15f))
+
+            // Use a grid for labels
+            val table = Table(UnitValue.createPercentArray(floatArrayOf(1f, 1f, 1f))).useAllAvailableWidth()
+
+            items.filter { it.barcode.isNotBlank() }.forEach { item ->
+                val cell = Cell().setPadding(10f).setBorder(com.itextpdf.layout.borders.SolidBorder(ColorConstants.LIGHT_GRAY, 0.5f))
+                cell.add(Paragraph(item.name).simulateBold().setFontSize(10f))
+                cell.add(Paragraph(item.barcode).setFontSize(12f).setFontColor(PRIMARY_COLOR))
+                cell.add(Paragraph(Formatter.formatCurrency(item.sellingPrice)).setFontSize(9f))
+                table.addCell(cell)
+            }
+
+            document.add(table)
+            document.close()
+            Toast.makeText(context, "Labels Saved: $filePathDisplay", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()

@@ -42,12 +42,11 @@ fun DebtManagementScreen(
     var lenderToDelete by remember { mutableStateOf<Loan?>(null) }
 
     Column(modifier = modifier.fillMaxSize()) {
-        ScreenHeader(title = "Debt Management")
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp)
+                .padding(top = 16.dp)
         ) {
             // Total Debt Summary Card
             Card(

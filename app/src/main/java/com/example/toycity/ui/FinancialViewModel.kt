@@ -138,30 +138,6 @@ class FinancialViewModel : ViewModel() {
         }
     }
 
-    fun updateExpenseCategory(category: String, amount: Double) {
-        _uiState.update { state ->
-            val updatedCategories = state.expenseCategories.toMutableMap()
-            if (amount == 0.0) updatedCategories.remove(category)
-            else updatedCategories[category] = amount
-            state.copy(expenseCategories = updatedCategories)
-        }
-    }
-
-    fun addCustomCategory(category: String) {
-        _uiState.update { state ->
-            if (state.customCategories.contains(category)) state
-            else state.copy(customCategories = state.customCategories + category)
-        }
-        saveData()
-    }
-
-    fun removeCustomCategory(category: String) {
-        _uiState.update { state ->
-            state.copy(customCategories = state.customCategories - category)
-        }
-        saveData()
-    }
-
     fun addInventoryItem(item: InventoryItem) {
         _uiState.update { state ->
             val updatedItems = state.inventoryData.items + item
@@ -230,7 +206,15 @@ class FinancialViewModel : ViewModel() {
                     items = updatedItems,
                     cogs = state.inventoryData.cogs + totalCogsIncrement
                 ),
-                sales = state.sales + newSale
+                sales = state.sales + newSale,
+                cashTransactions = state.cashTransactions + com.example.toycity.data.CashTransaction(
+                    id = java.util.UUID.randomUUID().toString(),
+                    amount = totalSaleAmount,
+                    note = "Sale to $customerName (${newSale.id.takeLast(4)})",
+                    isCashIn = true,
+                    date = newSale.timestamp,
+                    category = "Sale"
+                )
             )
         }
         triggerManualSave()
@@ -300,7 +284,6 @@ class FinancialViewModel : ViewModel() {
                 startingCash = 0.0,
                 totalSales = 0.0,
                 operatingExpenses = 0.0,
-                expenseCategories = emptyMap(),
                 sales = emptyList(),
                 cashTransactions = emptyList(),
                 inventoryData = state.inventoryData.copy(restockInvestment = 0.0, cogs = 0.0)
@@ -320,10 +303,6 @@ class FinancialViewModel : ViewModel() {
 
     fun updateOperatingExpenses(value: Double) {
         _uiState.update { it.copy(operatingExpenses = value) }
-    }
-
-    fun updateCustomerReceivables(value: Double) {
-        _uiState.update { it.copy(customerReceivables = value) }
     }
 
     fun updateRestockInvestment(value: Double) {
@@ -350,6 +329,11 @@ class FinancialViewModel : ViewModel() {
             }
             state.copy(loans = updatedLoans)
         }
+    }
+
+    fun updateCustomerReceivables(value: Double) {
+        _uiState.update { it.copy(customerReceivables = value) }
+        triggerManualSave()
     }
 
     fun addCashTransaction(amount: Double, note: String, isCashIn: Boolean, date: Long, category: String = "Operational", productId: String? = null) {
@@ -601,13 +585,19 @@ class FinancialViewModel : ViewModel() {
                 }
             }
 
+            val saleSuffix = saleId.takeLast(4)
+            val updatedCashTransactions = state.cashTransactions.filterNot { 
+                it.isCashIn && it.category == "Sale" && it.note.contains("($saleSuffix)") 
+            }
+
             state.copy(
                 totalSales = newTotalSales,
                 sales = state.sales.filter { it.id != saleId },
                 inventoryData = state.inventoryData.copy(
                     items = updatedInventoryItems,
                     cogs = (state.inventoryData.cogs - cogsToDeduct).coerceAtLeast(0.0)
-                )
+                ),
+                cashTransactions = updatedCashTransactions
             )
         }
         triggerManualSave()
@@ -645,6 +635,12 @@ class FinancialViewModel : ViewModel() {
             }
 
             val finalSale = updatedSale.copy(totalAmount = newTotalAmount)
+            val saleSuffix = updatedSale.id.takeLast(4)
+            val updatedCashTransactions = state.cashTransactions.map { tx ->
+                if (tx.isCashIn && tx.category == "Sale" && tx.note.contains("($saleSuffix)")) {
+                    tx.copy(amount = newTotalAmount)
+                } else tx
+            }
 
             state.copy(
                 totalSales = state.totalSales - oldSale.totalAmount + newTotalAmount,
@@ -652,7 +648,8 @@ class FinancialViewModel : ViewModel() {
                 inventoryData = state.inventoryData.copy(
                     items = updatedInventoryItems,
                     cogs = state.inventoryData.cogs - cogsToRevert + newCogs
-                )
+                ),
+                cashTransactions = updatedCashTransactions
             )
         }
         triggerManualSave()
@@ -695,13 +692,27 @@ class FinancialViewModel : ViewModel() {
                 state.sales.map { if (it.id == saleId) updatedSale else it }
             }
 
+            val saleSuffix = saleId.takeLast(4)
+            val updatedCashTransactions = if (updatedSaleItems.isEmpty()) {
+                state.cashTransactions.filterNot { 
+                    it.isCashIn && it.category == "Sale" && it.note.contains("($saleSuffix)") 
+                }
+            } else {
+                state.cashTransactions.map { tx ->
+                    if (tx.isCashIn && tx.category == "Sale" && tx.note.contains("($saleSuffix)")) {
+                        tx.copy(amount = updatedSale.totalAmount)
+                    } else tx
+                }
+            }
+
             state.copy(
                 totalSales = (state.totalSales - amountToDeduct).coerceAtLeast(0.0),
                 sales = updatedSales,
                 inventoryData = state.inventoryData.copy(
                     items = updatedInventoryItems,
                     cogs = (state.inventoryData.cogs - cogsToDeduct).coerceAtLeast(0.0)
-                )
+                ),
+                cashTransactions = updatedCashTransactions
             )
         }
         triggerManualSave()

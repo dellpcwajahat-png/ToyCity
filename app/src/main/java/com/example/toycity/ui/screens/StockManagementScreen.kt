@@ -81,8 +81,6 @@ fun StockManagementScreen(viewModel: FinancialViewModel = viewModel()) {
     Scaffold(
         topBar = {
             Column {
-                ScreenHeader(title = "Stock Inventory")
-                
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },

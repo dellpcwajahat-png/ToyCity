@@ -50,8 +50,6 @@ fun CounterScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            ScreenHeader(title = "Point of Sale")
-            
             Row(modifier = Modifier.fillMaxSize()) {
                 // Left Side: Inventory & Search
                 Column(modifier = Modifier.weight(1.2f)) {

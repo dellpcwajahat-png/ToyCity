@@ -9,11 +9,9 @@ data class FinancialRecord(
     val startingCash: Double = 0.0,
     val totalSales: Double = 0.0,
     val operatingExpenses: Double = 0.0,
-    val expenseCategories: Map<String, Double> = emptyMap(), // Categorized expenses
-    val customerReceivables: Double = 0.0,
-    val customCategories: List<String> = listOf("Operational", "Rent", "Utilities", "Salaries", "Marketing"),
     val inventoryData: InventoryData = InventoryData(),
     val loans: List<Loan> = emptyList(),
+    val customerReceivables: Double = 0.0,
     val cashTransactions: List<CashTransaction> = emptyList(), // Daily Cash In/Out
     val sales: List<Sale> = emptyList(), // List of all sales/receipts
     val lastUpdated: Long = System.currentTimeMillis()
@@ -42,11 +40,10 @@ data class FinancialRecord(
     val salesTotal: Double
         get() = if (sales.isNotEmpty()) sales.sumOf { it.totalAmount } else totalSales
 
-    // 2. Total Expenses (Categories + Manual Cash Out + Operating Expenses)
+    // 2. Total Expenses (Manual Cash Out + Operating Expenses)
     // We trust the cashTransactions list if it contains operational records to avoid double-counting.
     val totalExpenses: Double
         get() {
-            val categorizedSum = expenseCategories.values.sum()
             // All cash out that isn't Restock or Loan Repayment
             val manualCashOut = cashTransactions.filter { 
                 !it.isCashIn && 
@@ -55,9 +52,9 @@ data class FinancialRecord(
             }.sumOf { it.amount }
             
             return if (cashTransactions.any { !it.isCashIn && it.category.equals("Operational", ignoreCase = true) }) {
-                manualCashOut + categorizedSum
+                manualCashOut
             } else {
-                operatingExpenses + categorizedSum + manualCashOut
+                operatingExpenses + manualCashOut
             }
         }
 

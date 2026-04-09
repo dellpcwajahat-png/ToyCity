@@ -82,12 +82,11 @@ fun FinanceScreen(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            ScreenHeader(title = "Financial Ledger")
-
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 16.dp)
+                    .padding(top = 16.dp)
             ) {
                 // Trends Graph Section
                 if (allTimeSales.isNotEmpty()) {

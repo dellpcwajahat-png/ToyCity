@@ -23,8 +23,12 @@ import android.util.Log
 
 import com.google.firebase.auth.UserProfileChangeRequest
 
+import com.example.toycity.data.LogRepository
+import com.example.toycity.data.UserLog
+
 class AuthViewModel : ViewModel() {
     private val auth = FirebaseAuth.getInstance()
+    private val logRepository = LogRepository()
     private val _user = MutableStateFlow(auth.currentUser)
     val user: StateFlow<com.google.firebase.auth.FirebaseUser?> = _user.asStateFlow()
 
@@ -107,6 +111,13 @@ class AuthViewModel : ViewModel() {
                     val authResult = auth.signInWithCredential(firebaseCredential).await()
                     _user.value = authResult.user
                     _displayName.value = authResult.user?.displayName ?: authResult.user?.email ?: ""
+                    
+                    logRepository.addLog(UserLog(
+                        userId = authResult.user?.uid ?: "",
+                        userEmail = authResult.user?.email ?: "",
+                        action = "Login",
+                        details = "User logged in via Google"
+                    ))
                 }
                 credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL -> {
                     val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
@@ -114,6 +125,13 @@ class AuthViewModel : ViewModel() {
                     val authResult = auth.signInWithCredential(firebaseCredential).await()
                     _user.value = authResult.user
                     _displayName.value = authResult.user?.displayName ?: authResult.user?.email ?: ""
+
+                    logRepository.addLog(UserLog(
+                        userId = authResult.user?.uid ?: "",
+                        userEmail = authResult.user?.email ?: "",
+                        action = "Login",
+                        details = "User logged in via Google ID Token"
+                    ))
                 }
                 else -> {
                     Log.e("AuthDebug", "Unexpected credential type: ${credential.type}")
@@ -126,11 +144,23 @@ class AuthViewModel : ViewModel() {
     }
 
     fun signOut(context: Context) {
+        val currentUser = auth.currentUser
+        val userId = currentUser?.uid ?: ""
+        val userEmail = currentUser?.email ?: ""
+        
         auth.signOut()
         _user.value = null
         _logoutSuccess.value = true
         viewModelScope.launch {
             try {
+                if (userId.isNotEmpty()) {
+                    logRepository.addLog(UserLog(
+                        userId = userId,
+                        userEmail = userEmail,
+                        action = "Logout",
+                        details = "User logged out"
+                    ))
+                }
                 val credentialManager = CredentialManager.create(context)
                 credentialManager.clearCredentialState(ClearCredentialStateRequest())
             } catch (e: Exception) {

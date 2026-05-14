@@ -24,7 +24,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.toycity.data.Loan
 import com.example.toycity.ui.FinancialViewModel
-import com.example.toycity.ui.components.ScreenHeader
 import com.example.toycity.utils.Formatter
 import java.util.*
 
@@ -42,8 +41,6 @@ fun DebtManagementScreen(
     var lenderToDelete by remember { mutableStateOf<Loan?>(null) }
 
     Column(modifier = modifier.fillMaxSize()) {
-        ScreenHeader(title = "Debt Management")
-
         Column(
             modifier = Modifier
                 .fillMaxSize()

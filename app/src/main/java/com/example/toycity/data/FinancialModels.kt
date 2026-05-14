@@ -137,3 +137,12 @@ data class Loan(
     val repaymentToDate: Double = 0.0,
     val dueDate: Long? = null // For repayment reminders
 )
+
+data class UserLog(
+    val id: String = "",
+    val userId: String = "",
+    val userEmail: String = "",
+    val action: String = "",
+    val details: String = "",
+    val timestamp: Long = System.currentTimeMillis()
+)

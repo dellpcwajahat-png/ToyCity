@@ -2,8 +2,10 @@ package com.example.toycity.ui.screens
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -18,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.toycity.ui.FinancialViewModel
 import com.example.toycity.data.FinancialRecord
@@ -41,17 +44,20 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
+import com.example.toycity.ui.LogViewModel
+import com.example.toycity.ui.screens.LogScreen
 import com.example.toycity.utils.Formatter
 import com.example.toycity.utils.SecurityManager
-import com.example.toycity.ui.components.ScreenHeader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainDashboard(
     viewModel: FinancialViewModel = viewModel(),
-    authViewModel: AuthViewModel = viewModel()
+    authViewModel: AuthViewModel = viewModel(),
+    logViewModel: LogViewModel = viewModel()
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) } // 0: Home, 1: Summary, 2: Top Selling, 3: Stock, 4: Expenses, 5: Categories, 6: Customers, 8: Counter, 9: Settings, 10: Ledger, 11: Suppliers, 12: Op Expenses, 13: Restock Expenses, 14: Cash in hand, 15: Cash In/Out
+    var selectedTab by remember { mutableIntStateOf(0) } // 0: Home, 1: Summary, 2: Top Selling, 3: Stock, 4: Expenses, 5: Categories, 6: Customers, 8: Counter, 9: Settings, 10: Ledger, 11: Suppliers, 12: Op Expenses, 13: Restock Expenses, 14: Cash in hand, 15: Cash In/Out, 16: Logs
+    var currentSettingsView by remember { mutableStateOf(SettingsView.MAIN) }
     var currentMonth by remember { mutableStateOf(Formatter.formatMonth(Date())) }
     val user by authViewModel.user.collectAsState()
     val displayName by authViewModel.displayName.collectAsState()
@@ -61,12 +67,14 @@ fun MainDashboard(
         "wajahatabbasicentral@gmail.com"
     )
     val isAdmin = user?.email != null && user?.email in adminEmails
+    val isSystemAdmin = user?.email == "wajahatabbasicentral@gmail.com"
     val uiState by viewModel.uiState.collectAsState()
     val allRecords by viewModel.allRecords.collectAsState()
     val isAllTimeView by viewModel.isAllTimeView.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var showExportDialog by remember { mutableStateOf(false) }
+    var showCashLedgerResetDialog by remember { mutableStateOf(false) }
     
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
@@ -91,19 +99,67 @@ fun MainDashboard(
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            ModalDrawerSheet {
+            ModalDrawerSheet(
+                drawerContainerColor = MaterialTheme.colorScheme.surface,
+                drawerTonalElevation = 0.dp,
+                drawerShape = RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp)
+            ) {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        "Management & Insights",
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    HorizontalDivider()
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                                        MaterialTheme.colorScheme.surface
+                                    )
+                                )
+                            )
+                            .padding(horizontal = 24.dp, vertical = 32.dp)
+                    ) {
+                        Column {
+                            Surface(
+                                modifier = Modifier.size(64.dp),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primary,
+                                shadowElevation = 4.dp
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = (displayName.takeIf { it.isNotBlank() } ?: user?.email ?: "U").take(1).uppercase(),
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = displayName.ifBlank { "Toy City User" },
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = user?.email ?: "Guest Account",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
 
+                    Text(
+                        "MANAGEMENT & INSIGHTS",
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.2.sp
+                    )
+                    
                     NavigationDrawerItem(
-                        label = { Text("Business Summary") },
+                        label = { Text("Business Summary", fontWeight = FontWeight.Medium) },
                         selected = selectedTab == 1,
                         onClick = { 
                             selectedTab = 1
@@ -200,6 +256,19 @@ fun MainDashboard(
                         icon = { Icon(Icons.Default.SwapVert, contentDescription = null) },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
+
+                    if (isSystemAdmin) {
+                        NavigationDrawerItem(
+                            label = { Text("System Logs") },
+                            selected = selectedTab == 16,
+                            onClick = { 
+                                selectedTab = 16
+                                scope.launch { drawerState.close() }
+                            },
+                            icon = { Icon(Icons.Default.History, contentDescription = null) },
+                            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                        )
+                    }
                 }
             }
         }
@@ -217,11 +286,21 @@ fun MainDashboard(
                             5 -> "Categories"
                             6 -> "Customers"
                             8 -> "Point of Sale"
-                            9 -> "Settings"
+                            9 -> when(currentSettingsView) {
+                                SettingsView.MAIN -> "Settings"
+                                SettingsView.PROFILE -> "Profile"
+                                SettingsView.SECURITY -> "Security"
+                                SettingsView.DATA_MANAGEMENT -> "Data Management"
+                                SettingsView.BACKUP -> "Backup"
+                                SettingsView.RESTORE -> "Restore"
+                                SettingsView.RECEIPT -> "Receipt"
+                                SettingsView.PRINTER -> "Printer"
+                            }
                             10 -> "Financial Ledger"
                             11 -> "Debt Management"
                             14 -> "Cash in Hand"
                             15 -> "Cash Ledger"
+                            16 -> "System Logs"
                             else -> "Toy City"
                         }
                         Text(
@@ -232,11 +311,39 @@ fun MainDashboard(
                         )
                     },
                     navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        val isSettingsSubView = selectedTab == 9 && currentSettingsView != SettingsView.MAIN
+                        // Main tabs that show Menu icon: Dashboard(0), Products(3), POS(8), Settings(9-main), Ledger(10)
+                        val isMainTab = when(selectedTab) {
+                            0, 3, 8, 10 -> true
+                            9 -> currentSettingsView == SettingsView.MAIN
+                            else -> false
+                        }
+                        
+                        if (!isMainTab) {
+                            IconButton(onClick = {
+                                if (isSettingsSubView) {
+                                    when (currentSettingsView) {
+                                        SettingsView.BACKUP, SettingsView.RESTORE -> currentSettingsView = SettingsView.DATA_MANAGEMENT
+                                        else -> currentSettingsView = SettingsView.MAIN
+                                    }
+                                } else {
+                                    selectedTab = 0
+                                }
+                            }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            }
+                        } else {
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                Icon(Icons.Default.Menu, contentDescription = "Menu")
+                            }
                         }
                     },
                     actions = {
+                        if (selectedTab == 15) {
+                            IconButton(onClick = { showCashLedgerResetDialog = true }) {
+                                Icon(Icons.Default.Refresh, contentDescription = "Reset All", tint = MaterialTheme.colorScheme.error)
+                            }
+                        }
                         Text(
                             displayName,
                             style = MaterialTheme.typography.titleSmall,
@@ -329,11 +436,17 @@ fun MainDashboard(
                         currentMonth = currentMonth,
                         onMonthSelected = { currentMonth = it }
                     )
-                    15 -> CashInOutScreen(viewModel = viewModel)
+                    15 -> CashInOutScreen(
+                        viewModel = viewModel,
+                        showResetDialog = showCashLedgerResetDialog,
+                        onDismissResetDialog = { showCashLedgerResetDialog = false }
+                    )
                     5 -> CategoriesScreen()
                     6 -> CustomersScreen()
                     8 -> CounterScreen(viewModel = viewModel)
                     9 -> SettingsScreen(
+                        currentView = currentSettingsView,
+                        onViewChange = { currentSettingsView = it },
                         authViewModel = authViewModel,
                         onExportData = {
                             scope.launch {
@@ -341,10 +454,13 @@ fun MainDashboard(
                             }
                         },
                         onImportData = { importLauncher.launch(arrayOf("application/json")) },
-                        context = context
+                        context = context,
+                        isSystemAdmin = isSystemAdmin,
+                        onTabChange = { selectedTab = it }
                     )
                     10 -> FinanceScreen(viewModel = viewModel)
                     11 -> DebtManagementScreen(viewModel = viewModel)
+                    16 -> LogScreen(viewModel = logViewModel)
                 }
             }
 
@@ -358,11 +474,6 @@ fun MainDashboard(
                                 id = "All-Time",
                                 totalSales = allRecords.sumOf { it.totalSales },
                                 operatingExpenses = allRecords.sumOf { it.operatingExpenses },
-                                expenseCategories = allRecords.flatMap { it.expenseCategories.asIterable() }
-                                    .groupBy({ it.key }, { it.value })
-                                    .mapValues { it.value.sum() },
-                                customerReceivables = allRecords.filter { it.totalSales > 0 || it.customerReceivables > 0 }
-                                    .maxByOrNull { it.id }?.customerReceivables ?: 0.0,
                                 inventoryData = com.example.toycity.data.InventoryData(
                                     restockInvestment = allRecords.sumOf { it.inventoryData.restockInvestment },
                                     cogs = allRecords.sumOf { it.inventoryData.cogs }
@@ -387,124 +498,6 @@ fun MainDashboard(
                 )
             }
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ExpenseCategoriesScreen(
-    viewModel: com.example.toycity.ui.FinancialViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
-    onBack: () -> Unit
-) {
-    val uiState by viewModel.uiState.collectAsState()
-    var showAddDialog by remember { mutableStateOf(false) }
-    var newCategoryName by remember { mutableStateOf("") }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Expense Categories") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Add Category")
-            }
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            Text(
-                "Custom Categories",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(16.dp),
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                )
-            ) {
-                Column(modifier = Modifier.padding(8.dp)) {
-                    uiState.customCategories.forEach { category ->
-                        ListItem(
-                            headlineContent = { Text(category) },
-                            trailingContent = {
-                                IconButton(onClick = { viewModel.removeCustomCategory(category) }) {
-                                    Icon(
-                                        Icons.Default.Delete,
-                                        contentDescription = "Delete",
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                            },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                        )
-                        if (category != uiState.customCategories.last()) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                            )
-                        }
-                    }
-                }
-            }
-
-            Text(
-                "These categories will be available when recording new expenses.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(16.dp)
-            )
-        }
-    }
-
-    if (showAddDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddDialog = false },
-            title = { Text("New Category") },
-            text = {
-                OutlinedTextField(
-                    value = newCategoryName,
-                    onValueChange = { newCategoryName = it },
-                    label = { Text("Category Name") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (newCategoryName.isNotBlank()) {
-                            viewModel.addCustomCategory(newCategoryName.trim())
-                            newCategoryName = ""
-                            showAddDialog = false
-                        }
-                    }
-                ) {
-                    Text("Add")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
     }
 }
 
@@ -678,23 +671,26 @@ fun MonthPickerDialog(
 }
 
 enum class SettingsView {
-    MAIN, PROFILE, SECURITY, DATA_MANAGEMENT, BACKUP, RESTORE, RECEIPT, PRINTER, EXPENSE_CATEGORIES
+    MAIN, PROFILE, SECURITY, DATA_MANAGEMENT, BACKUP, RESTORE, RECEIPT, PRINTER
 }
 
 @Composable
 fun SettingsScreen(
+    currentView: SettingsView,
+    onViewChange: (SettingsView) -> Unit,
     authViewModel: AuthViewModel,
     onExportData: () -> Unit,
     onImportData: () -> Unit,
-    context: android.content.Context
+    context: android.content.Context,
+    isSystemAdmin: Boolean,
+    onTabChange: (Int) -> Unit
 ) {
-    var currentView by remember { mutableStateOf(SettingsView.MAIN) }
     val user by authViewModel.user.collectAsState()
 
     BackHandler(enabled = currentView != SettingsView.MAIN) {
         when (currentView) {
-            SettingsView.BACKUP, SettingsView.RESTORE -> currentView = SettingsView.DATA_MANAGEMENT
-            else -> currentView = SettingsView.MAIN
+            SettingsView.BACKUP, SettingsView.RESTORE -> onViewChange(SettingsView.DATA_MANAGEMENT)
+            else -> onViewChange(SettingsView.MAIN)
         }
     }
 
@@ -712,40 +708,32 @@ fun SettingsScreen(
         when (view) {
             SettingsView.MAIN -> SettingsMainView(
                 user = user,
-                onNavigate = { currentView = it },
-                onLogout = { authViewModel.signOut(context) }
+                onNavigate = { onViewChange(it) },
+                onLogout = { authViewModel.signOut(context) },
+                isSystemAdmin = isSystemAdmin,
+                onTabChange = onTabChange
             )
             SettingsView.PROFILE -> ProfileScreen(
                 user = user,
-                onUpdateName = { authViewModel.updateDisplayName(it) },
-                onBack = { currentView = SettingsView.MAIN }
+                onUpdateName = { authViewModel.updateDisplayName(it) }
             )
             SettingsView.SECURITY -> SecuritySettingsScreen(
-                context = context,
-                onBack = { currentView = SettingsView.MAIN }
+                context = context
             )
             SettingsView.DATA_MANAGEMENT -> DataManagementScreen(
-                onNavigate = { currentView = it },
-                onBack = { currentView = SettingsView.MAIN }
+                onNavigate = { onViewChange(it) }
             )
             SettingsView.BACKUP -> BackupScreen(
-                onExportData = onExportData,
-                onBack = { currentView = SettingsView.DATA_MANAGEMENT }
+                onExportData = onExportData
             )
             SettingsView.RESTORE -> RestoreScreen(
-                onImportData = onImportData,
-                onBack = { currentView = SettingsView.DATA_MANAGEMENT }
+                onImportData = onImportData
             )
             SettingsView.RECEIPT -> ReceiptSettingsScreen(
-                context = context,
-                onBack = { currentView = SettingsView.MAIN }
+                context = context
             )
             SettingsView.PRINTER -> PrinterSettingsScreen(
-                context = context,
-                onBack = { currentView = SettingsView.MAIN }
-            )
-            SettingsView.EXPENSE_CATEGORIES -> ExpenseCategoriesScreen(
-                onBack = { currentView = SettingsView.MAIN }
+                context = context
             )
         }
     }
@@ -756,7 +744,9 @@ fun SettingsScreen(
 fun SettingsMainView(
     user: com.google.firebase.auth.FirebaseUser?,
     onNavigate: (SettingsView) -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    isSystemAdmin: Boolean,
+    onTabChange: (Int) -> Unit
 ) {
     var showLogoutConfirm by remember { mutableStateOf(false) }
 
@@ -789,8 +779,6 @@ fun SettingsMainView(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ) {
-        ScreenHeader(title = "Settings")
-
         // User Profile Header Card
         Card(
             modifier = Modifier
@@ -856,36 +844,37 @@ fun SettingsMainView(
                 )
             }
 
-            // Hardware & Customization
-            SettingsGroup(title = "Business Setup") {
+            SettingsGroup(title = "Hardware & Tools") {
                 SettingsItem(
-                    title = "Expense Categories",
-                    subtitle = "Manage custom business expenses",
-                    icon = Icons.Default.Category,
-                    onClick = { onNavigate(SettingsView.EXPENSE_CATEGORIES) }
-                )
-                SettingsItem(
-                    title = "Printer Settings",
-                    subtitle = "Bluetooth & Paper Size",
+                    title = "Printer Configuration",
+                    subtitle = "Manage Bluetooth thermal printers",
                     icon = Icons.Default.Print,
                     onClick = { onNavigate(SettingsView.PRINTER) }
                 )
                 SettingsItem(
                     title = "Receipt Designer",
-                    subtitle = "Customize business receipts",
+                    subtitle = "Customize business header & footer",
                     icon = Icons.Default.Receipt,
                     onClick = { onNavigate(SettingsView.RECEIPT) }
                 )
             }
 
             // Data Management
-            SettingsGroup(title = "Data & Storage") {
+            SettingsGroup(title = "Data Management") {
                 SettingsItem(
-                    title = "Backup & Restore",
-                    subtitle = "Cloud & Local Data Management",
+                    title = "Backup & Recovery",
+                    subtitle = "Cloud & Local storage options",
                     icon = Icons.Default.CloudSync,
                     onClick = { onNavigate(SettingsView.DATA_MANAGEMENT) }
                 )
+                if (isSystemAdmin) {
+                    SettingsItem(
+                        title = "System Logs",
+                        subtitle = "View detailed activity audit trail",
+                        icon = Icons.Default.History,
+                        onClick = { onTabChange(16) }
+                    )
+                }
             }
 
             // Logout
@@ -908,8 +897,7 @@ fun SettingsMainView(
 @Composable
 fun ProfileScreen(
     user: com.google.firebase.auth.FirebaseUser?,
-    onUpdateName: (String) -> Unit,
-    onBack: () -> Unit
+    onUpdateName: (String) -> Unit
 ) {
     var newName by remember { mutableStateOf(user?.displayName ?: "") }
     val context = LocalContext.current
@@ -920,16 +908,6 @@ fun ProfileScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
-            Text("Profile Settings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        }
-
         Spacer(modifier = Modifier.height(24.dp))
 
         Surface(
@@ -968,7 +946,7 @@ fun ProfileScreen(
                 OutlinedTextField(
                     value = newName,
                     onValueChange = { newName = it },
-                    label = { Text("Business / Owner Name") },
+                    label = { Text("Name") },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     leadingIcon = { Icon(Icons.Default.Badge, contentDescription = null) }
@@ -1006,8 +984,7 @@ fun ProfileScreen(
 
 @Composable
 fun SecuritySettingsScreen(
-    context: android.content.Context,
-    onBack: () -> Unit
+    context: android.content.Context
 ) {
     var isLockEnabled by remember { mutableStateOf(SecurityManager.isAppLockEnabled(context)) }
     var isBiometricEnabled by remember { mutableStateOf(SecurityManager.isBiometricEnabled(context)) }
@@ -1022,7 +999,7 @@ fun SecuritySettingsScreen(
                 SecurityManager.setAppLockEnabled(context, true)
                 isLockEnabled = true
                 showPinDialog = false
-                android.widget.Toast.makeText(context, "PIN set successfully", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, "PIN updated successfully", android.widget.Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -1030,44 +1007,89 @@ fun SecuritySettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(20.dp)
+            .verticalScroll(rememberScrollState())
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+        // Hero Card for Security Status
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp),
+            shape = RoundedCornerShape(32.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isLockEnabled) 
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                else 
+                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f)
+            )
         ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
-            Text("Security Settings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        SettingsGroup(title = "App Protection") {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp, horizontal = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.padding(24.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(56.dp),
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                    color = if (isLockEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Icon(
+                            if (isLockEnabled) Icons.Default.Shield else Icons.Default.GppMaybe,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(20.dp))
+                Column {
+                    Text(
+                        if (isLockEnabled) "Protection Active" else "Protection Disabled",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isLockEnabled) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.error
+                    )
+                    Text(
+                        if (isLockEnabled) "Your data is secured with a PIN" else "Enable App Lock to secure your data",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        SettingsGroup(title = "Authentication Methods") {
+            // App Lock Toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable { 
+                        if (!isLockEnabled) showPinDialog = true 
+                        else {
+                            SecurityManager.setAppLockEnabled(context, false)
+                            isLockEnabled = false
+                        }
+                    }
+                    .padding(vertical = 12.dp, horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    modifier = Modifier.size(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
                     }
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("App Lock", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("Enable App Lock", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(
-                        "Require PIN or Biometric to open",
+                        "Require PIN to open ToyCity",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
                 Switch(
@@ -1084,39 +1106,48 @@ fun SecuritySettingsScreen(
             }
 
             if (isLockEnabled) {
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                
+                // Update PIN Item
                 SettingsItem(
-                    title = "Update PIN",
-                    subtitle = "Change your 4-digit security PIN",
-                    icon = Icons.Default.Password,
+                    title = "Change Security PIN",
+                    subtitle = "Update your 4-digit numeric code",
+                    icon = Icons.Default.VpnKey,
                     onClick = { showPinDialog = true }
                 )
                 
                 if (canUseBiometric) {
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    
+                    // Biometric Toggle
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable { 
+                                val newStatus = !isBiometricEnabled
+                                SecurityManager.setBiometricEnabled(context, newStatus)
+                                isBiometricEnabled = newStatus
+                            }
                             .padding(vertical = 12.dp, horizontal = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Surface(
-                            modifier = Modifier.size(40.dp),
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                            modifier = Modifier.size(44.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Fingerprint, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Default.Fingerprint, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(22.dp))
                             }
                         }
                         Spacer(modifier = Modifier.width(16.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Biometric Login", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Biometric Login", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             Text(
-                                "Use Fingerprint or Face ID",
+                                "Unlock with Fingerprint or Face ID",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.outline
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                             )
                         }
                         Switch(
@@ -1130,54 +1161,156 @@ fun SecuritySettingsScreen(
                 }
             }
         }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Security Tips
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                "Security Tips",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
+            Row(verticalAlignment = Alignment.Top) {
+                Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    "Use a PIN that is difficult to guess. Avoid using birth dates or simple patterns like 1234.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SetPinDialog(
     onDismiss: () -> Unit,
     onPinSet: (String) -> Unit
 ) {
     var pin by remember { mutableStateOf("") }
-    
-    AlertDialog(
+    val isError = pin.isNotEmpty() && pin.length < 4
+
+    BasicAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Set 4-Digit PIN") },
-        text = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        modifier = Modifier.clip(RoundedCornerShape(32.dp))
+    ) {
+        Surface(
+            modifier = Modifier.wrapContentSize(),
+            shape = RoundedCornerShape(32.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                // Icon and Title Header
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Surface(
+                        modifier = Modifier.size(56.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.VpnKey,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+                    Text(
+                        "Security PIN",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        "Enter a 4-digit code to protect your business data.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                // PIN Input Field
                 OutlinedTextField(
                     value = pin,
                     onValueChange = { if (it.length <= 4 && it.all { char -> char.isDigit() }) pin = it },
-                    label = { Text("Enter PIN") },
+                    placeholder = { 
+                        Text(
+                            "0000", 
+                            modifier = Modifier.fillMaxWidth(), 
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.headlineMedium.copy(letterSpacing = 8.sp),
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                        ) 
+                    },
                     visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                         keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
                     ),
-                    modifier = Modifier.width(120.dp)
+                    modifier = Modifier.width(180.dp),
+                    textStyle = MaterialTheme.typography.headlineMedium.copy(
+                        textAlign = TextAlign.Center,
+                        letterSpacing = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    shape = RoundedCornerShape(20.dp),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        focusedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.05f)
+                    ),
+                    isError = isError,
+                    supportingText = {
+                        if (isError) {
+                            Text("Must be 4 digits", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
                 )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { if (pin.length == 4) onPinSet(pin) },
-                enabled = pin.length == 4
-            ) {
-                Text("Confirm")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
+
+                // Actions
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text("Cancel")
+                    }
+                    Button(
+                        onClick = { if (pin.length == 4) onPinSet(pin) },
+                        enabled = pin.length == 4,
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                    ) {
+                        Text("Save PIN")
+                    }
+                }
             }
         }
-    )
+    }
 }
 
 @Composable
 fun ReceiptSettingsScreen(
-    context: android.content.Context,
-    onBack: () -> Unit
+    context: android.content.Context
 ) {
     val settings = remember { SecurityManager.getReceiptSettings(context) }
     var businessName by remember { mutableStateOf(settings["name"] ?: "") }
@@ -1192,30 +1325,15 @@ fun ReceiptSettingsScreen(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
-            Text("Receipt Designer", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        }
-
         Column(
             modifier = Modifier
-                .padding(horizontal = 16.dp)
+                .padding(16.dp)
         ) {
-            SettingsGroup(title = "Business Information") {
+            SettingsGroup(title = "Receipt Details") {
                 ReceiptTextField(label = "Business Name", value = businessName, onValueChange = { businessName = it }, icon = Icons.Default.Business)
                 ReceiptTextField(label = "Address", value = businessAddress, onValueChange = { businessAddress = it }, icon = Icons.Default.LocationOn)
                 ReceiptTextField(label = "Phone Number", value = businessPhone, onValueChange = { businessPhone = it }, icon = Icons.Default.Phone)
                 ReceiptTextField(label = "NTN No (Optional)", value = ntnNo, onValueChange = { ntnNo = it }, icon = Icons.Default.Numbers)
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            SettingsGroup(title = "Receipt Footer") {
                 ReceiptTextField(label = "Sales Person Name", value = salesPerson, onValueChange = { salesPerson = it }, icon = Icons.Default.Person)
                 ReceiptTextField(label = "Thank You Note", value = thankYouNote, onValueChange = { thankYouNote = it }, icon = Icons.Default.RateReview, isSingleLine = false)
             }
@@ -1246,7 +1364,7 @@ fun ReceiptSettingsScreen(
 
 
 @Composable
-fun PrinterSettingsScreen(context: android.content.Context, onBack: () -> Unit) {
+fun PrinterSettingsScreen(context: android.content.Context) {
     val settings: Map<String, String> = remember { SecurityManager.getPrinterSettings(context) }
     var selectedPrinterAddress by remember { mutableStateOf(settings["address"] ?: "") }
     var pageSize by remember { mutableStateOf(settings["pageSize"] ?: "80mm") }
@@ -1328,16 +1446,6 @@ fun PrinterSettingsScreen(context: android.content.Context, onBack: () -> Unit) 
             .fillMaxSize()
             .padding(horizontal = 16.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
-            Text("Printer Configuration", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        }
-
         SettingsGroup(title = "Hardware Connection") {
             SettingsItem(
                 title = "Select Bluetooth Printer",
@@ -1411,7 +1519,6 @@ fun PrinterSettingsScreen(context: android.content.Context, onBack: () -> Unit) 
             onClick = {
                 SecurityManager.savePrinterSettings(context, selectedPrinterAddress, pageSize)
                 android.widget.Toast.makeText(context, "Printer settings saved", android.widget.Toast.LENGTH_SHORT).show()
-                onBack()
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -1456,22 +1563,12 @@ fun ReceiptTextField(
 }
 
 @Composable
-fun DataManagementScreen(onNavigate: (SettingsView) -> Unit, onBack: () -> Unit) {
+fun DataManagementScreen(onNavigate: (SettingsView) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
-            Text("Data & Storage", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        }
-
         SettingsGroup(title = "Backup Operations") {
             SettingsItem(
                 title = "Export Database",
@@ -1513,22 +1610,12 @@ fun DataManagementScreen(onNavigate: (SettingsView) -> Unit, onBack: () -> Unit)
 
 
 @Composable
-fun BackupScreen(onExportData: () -> Unit, onBack: () -> Unit) {
+fun BackupScreen(onExportData: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
-            Text("Cloud Backup", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        }
-
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(28.dp),
@@ -1580,22 +1667,12 @@ fun BackupScreen(onExportData: () -> Unit, onBack: () -> Unit) {
 
 
 @Composable
-fun RestoreScreen(onImportData: () -> Unit, onBack: () -> Unit) {
+fun RestoreScreen(onImportData: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
-            Text("Data Restoration", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        }
-
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(28.dp),

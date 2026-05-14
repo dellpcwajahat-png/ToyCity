@@ -7,7 +7,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.toycity.ui.components.ScreenHeader
 
 @Composable
 fun CustomersScreen() {
@@ -16,8 +15,6 @@ fun CustomersScreen() {
             .fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        ScreenHeader(title = "Customers")
-        
         Column(
             modifier = Modifier
                 .weight(1f)

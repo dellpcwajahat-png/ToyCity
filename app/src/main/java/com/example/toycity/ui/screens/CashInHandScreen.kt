@@ -17,7 +17,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.toycity.ui.FinancialViewModel
-import com.example.toycity.ui.components.ScreenHeader
 import com.example.toycity.utils.Formatter
 import java.util.*
 
@@ -41,24 +40,11 @@ fun CashInHandScreen(
 
     val totalCashInHand = cashInHandTransactions.sumOf { it.amount }
 
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(onClick = { 
-                entryToEdit = null
-                showAddDialog = true 
-            }) {
-                Icon(Icons.Default.Add, contentDescription = "Add Cash in Hand")
-            }
-        }
-    ) { padding ->
+    Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
         ) {
-            // Moved ScreenHeader inside the main column and ensured no extra padding at top
-            ScreenHeader(title = "Cash in Hand")
-
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -123,6 +109,18 @@ fun CashInHandScreen(
                     }
                 }
             }
+        }
+
+        FloatingActionButton(
+            onClick = {
+                entryToEdit = null
+                showAddDialog = true
+            },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Add Cash in Hand")
         }
     }
 

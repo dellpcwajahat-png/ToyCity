@@ -87,6 +87,7 @@ fun DashboardScreen(
     
     val currentYear = Calendar.getInstance().get(Calendar.YEAR)
     val dayOfYear = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
+    val currentMonthIndex = Calendar.getInstance().get(Calendar.MONTH) + 1
 
     // Extract metrics from actual Sales data across allRecords
     fun getMetricsForPeriod(startTime: Long, endTime: Long? = null): Triple<Double, Double, Double> {
@@ -132,7 +133,7 @@ fun DashboardScreen(
         val (todayS, todayP, todayE) = getMetricsForPeriod(today)
         val (yesterdayS, yesterdayP, _) = getMetricsForPeriod(yesterday, today)
         val (monthS, monthP, monthE) = getMetricsForPeriod(firstOfCurrentMonth)
-        val (yearS, _, _) = getMetricsForPeriod(firstOfCurrentYear)
+        val (yearS, yearP, yearE) = getMetricsForPeriod(firstOfCurrentYear)
         
         // Prepare data for the 7-day graph
         val graphData = (0..6).map { dayOffset ->
@@ -158,6 +159,8 @@ fun DashboardScreen(
             val monthProfit = monthP
             val monthExpenses = monthE
             val yearSales = yearS
+            val yearProfit = yearP
+            val yearExpenses = yearE
             val graphData = graphData
         }
     }
@@ -190,10 +193,6 @@ fun DashboardScreen(
             cashInDrawer = cashInDrawer
         )
 
-        // Low Stock Banner (only shows if there are low stock items)
-        if (lowStockProducts > 0 || outOfStockProducts > 0) {
-            LowStockBanner(lowStockCount = lowStockProducts, outOfStockCount = outOfStockProducts)
-        }
 
         // Secondary Metrics Row - Compact
         Row(
@@ -222,8 +221,9 @@ fun DashboardScreen(
         Text(
             text = "Business Vitals",
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 8.dp)
+            fontWeight = FontWeight.ExtraBold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(top = 12.dp, start = 4.dp)
         )
 
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -303,70 +303,35 @@ fun DashboardScreen(
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+
+            // Row 4: Yearly Average Sale & Expenses
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SummaryBox(
+                    modifier = Modifier.weight(1f),
+                    label = "Yearly Avg Sale",
+                    value = Formatter.formatCurrency(metrics.yearSales / currentMonthIndex),
+                    icon = Icons.AutoMirrored.Filled.ShowChart,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                    contentColor = MaterialTheme.colorScheme.primary
+                )
+                SummaryBox(
+                    modifier = Modifier.weight(1f),
+                    label = "Yearly Avg Exp.",
+                    value = Formatter.formatCurrency(metrics.yearExpenses / currentMonthIndex),
+                    icon = Icons.Default.BarChart,
+                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            }
         }
         
         Spacer(modifier = Modifier.height(80.dp))
     }
 }
 
-@Composable
-fun LowStockBanner(lowStockCount: Int, outOfStockCount: Int) {
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = if (outOfStockCount > 0) MaterialTheme.colorScheme.errorContainer 
-                            else MaterialTheme.colorScheme.tertiaryContainer
-        ),
-        shape = RoundedCornerShape(20.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(
-                        color = if (outOfStockCount > 0) MaterialTheme.colorScheme.error.copy(alpha = 0.2f)
-                                else MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f),
-                        shape = CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = if (outOfStockCount > 0) Icons.Default.Warning else Icons.Default.Inventory,
-                    contentDescription = null,
-                    tint = if (outOfStockCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary
-                )
-            }
-            
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = if (outOfStockCount > 0) "Urgent Action Required" else "Stock Alert",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = if (outOfStockCount > 0) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onTertiaryContainer
-                )
-                Text(
-                    text = buildString {
-                        if (outOfStockCount > 0) append("$outOfStockCount products are out of stock. ")
-                        if (lowStockCount > 0) append("$lowStockCount products are running low.")
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (outOfStockCount > 0) MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f)
-                )
-            }
-            
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = if (outOfStockCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary
-            )
-        }
-    }
-}
 
 @Composable
 fun SummaryBox(
@@ -379,31 +344,40 @@ fun SummaryBox(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        color = containerColor,
-        shadowElevation = 0.dp
+        shape = RoundedCornerShape(24.dp),
+        color = containerColor.copy(alpha = 0.9f),
+        tonalElevation = 2.dp,
+        border = BorderStroke(1.dp, contentColor.copy(alpha = 0.1f))
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = contentColor.copy(alpha = 0.7f),
-                modifier = Modifier.size(20.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(contentColor.copy(alpha = 0.15f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
             Column {
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelSmall,
-                    color = contentColor.copy(alpha = 0.7f),
+                    fontWeight = FontWeight.Medium,
+                    color = contentColor.copy(alpha = 0.8f),
                     maxLines = 1
                 )
                 Text(
                     text = value,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold,
                     color = contentColor,
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis

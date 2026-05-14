@@ -25,10 +25,13 @@ import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CashInOutScreen(viewModel: FinancialViewModel = viewModel()) {
+fun CashInOutScreen(
+    viewModel: FinancialViewModel = viewModel(),
+    showResetDialog: Boolean = false,
+    onDismissResetDialog: () -> Unit = {}
+) {
     val uiState by viewModel.uiState.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
-    var showResetDialog by remember { mutableStateOf(false) }
 
     val displayTransactions = remember(uiState.cashTransactions) {
         uiState.cashTransactions.filter { 
@@ -40,24 +43,8 @@ fun CashInOutScreen(viewModel: FinancialViewModel = viewModel()) {
     val totalCashIn = displayTransactions.filter { it.isCashIn }.sumOf { it.amount }
     val totalCashOut = displayTransactions.filter { !it.isCashIn }.sumOf { it.amount }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Cash Ledger") },
-                actions = {
-                    IconButton(onClick = { showResetDialog = true }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Reset All", tint = MaterialTheme.colorScheme.error)
-                    }
-                }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Add Transaction")
-            }
-        }
-    ) { padding ->
-        Column(modifier = Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
             // Initial Cash Field
             OutlinedTextField(
                 value = if (uiState.startingCash == 0.0) "" else uiState.startingCash.toString(),
@@ -143,18 +130,27 @@ fun CashInOutScreen(viewModel: FinancialViewModel = viewModel()) {
                 }
             }
         }
+
+        FloatingActionButton(
+            onClick = { showAddDialog = true },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Add Transaction")
+        }
     }
 
     if (showResetDialog) {
         AlertDialog(
-            onDismissRequest = { showResetDialog = false },
+            onDismissRequest = onDismissResetDialog,
             title = { Text("Reset Monthly Records?") },
             text = { Text("This will set Starting Cash, Sales, and Expenses for THIS month back to 0. This action cannot be undone.") },
             confirmButton = {
                 Button(
                     onClick = {
                         viewModel.resetMonthlyLedger()
-                        showResetDialog = false
+                        onDismissResetDialog()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
@@ -162,7 +158,7 @@ fun CashInOutScreen(viewModel: FinancialViewModel = viewModel()) {
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showResetDialog = false }) { Text("Cancel") }
+                TextButton(onClick = onDismissResetDialog) { Text("Cancel") }
             }
         )
     }

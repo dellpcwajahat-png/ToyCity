@@ -9,6 +9,9 @@ import android.provider.MediaStore
 import android.widget.Toast
 import com.example.toycity.data.FinancialRecord
 import com.example.toycity.data.FinancialRepository
+import com.example.toycity.data.LogRepository
+import com.example.toycity.data.UserLog
+import com.google.firebase.auth.FirebaseAuth
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
@@ -58,6 +61,19 @@ object DataBackupManager {
                 }
 
                 outputStream?.use { it.write(jsonString.toByteArray()) }
+
+                val logRepository = LogRepository()
+                val auth = FirebaseAuth.getInstance()
+                val user = auth.currentUser
+                logRepository.addLog(
+                    UserLog(
+                        userId = user?.uid ?: "Anonymous",
+                        userEmail = user?.email ?: "Anonymous",
+                        action = "Data Export",
+                        details = "Exported ${records.size} records to $fileName",
+                        timestamp = System.currentTimeMillis()
+                    )
+                )
                 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "Successfully exported ${records.size} records to Downloads", Toast.LENGTH_LONG).show()
@@ -94,6 +110,19 @@ object DataBackupManager {
                     // to ensure all users see the imported data
                     repository.saveRecord(record.copy(userId = "SHARED_STORE_DATA"))
                 }
+
+                val logRepository = LogRepository()
+                val auth = FirebaseAuth.getInstance()
+                val user = auth.currentUser
+                logRepository.addLog(
+                    UserLog(
+                        userId = user?.uid ?: "Anonymous",
+                        userEmail = user?.email ?: "Anonymous",
+                        action = "Data Import",
+                        details = "Imported ${records.size} records from backup file",
+                        timestamp = System.currentTimeMillis()
+                    )
+                )
                 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "Successfully imported ${records.size} records", Toast.LENGTH_LONG).show()

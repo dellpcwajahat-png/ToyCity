@@ -24,7 +24,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.toycity.data.InventoryItem
 import com.example.toycity.ui.FinancialViewModel
-import com.example.toycity.ui.components.ScreenHeader
 import com.example.toycity.utils.Formatter
 import java.util.*
 
@@ -47,8 +46,6 @@ fun InventoryScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            ScreenHeader(title = "Stock Inventory")
-
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                 // Search Bar
                 OutlinedTextField(

@@ -39,7 +39,6 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.toycity.data.InventoryItem
 import com.example.toycity.ui.FinancialViewModel
-import com.example.toycity.ui.components.ScreenHeader
 import com.example.toycity.utils.Formatter
 import java.io.File
 import java.util.*
@@ -78,111 +77,108 @@ fun StockManagementScreen(viewModel: FinancialViewModel = viewModel()) {
         (!showLowStockOnly || it.quantity <= it.lowStockThreshold)
     }
 
-    Scaffold(
-        topBar = {
-            Column {
-                ScreenHeader(title = "Stock Inventory")
-                
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    placeholder = { Text("Search products...") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Close, null)
-                            }
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                placeholder = { Text("Search products...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Close, null)
                         }
-                    },
-                    shape = RoundedCornerShape(20.dp),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface
-                    )
+                    }
+                },
+                shape = RoundedCornerShape(20.dp),
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
                 )
+            )
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = !showLowStockOnly,
-                        onClick = { showLowStockOnly = false },
-                        label = { Text("All Items") },
-                        shape = RoundedCornerShape(20.dp)
-                    )
-                    FilterChip(
-                        selected = showLowStockOnly,
-                        onClick = { showLowStockOnly = true },
-                        label = { Text("Low Stock") },
-                        shape = RoundedCornerShape(20.dp),
-                        leadingIcon = if (showLowStockOnly) {
-                            { Icon(Icons.Default.Warning, null, modifier = Modifier.size(16.dp)) }
-                        } else null
-                    )
-                }
-            }
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddDialog = true },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = RoundedCornerShape(20.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Product")
+                FilterChip(
+                    selected = !showLowStockOnly,
+                    onClick = { showLowStockOnly = false },
+                    label = { Text("All Items") },
+                    shape = RoundedCornerShape(20.dp)
+                )
+                FilterChip(
+                    selected = showLowStockOnly,
+                    onClick = { showLowStockOnly = true },
+                    label = { Text("Low Stock") },
+                    shape = RoundedCornerShape(20.dp),
+                    leadingIcon = if (showLowStockOnly) {
+                        { Icon(Icons.Default.Warning, null, modifier = Modifier.size(16.dp)) }
+                    } else null
+                )
+            }
+
+            if (filteredItems.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.Inventory2,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = if (searchQuery.isEmpty()) "Your inventory is empty" else "No matching products found",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                }
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    contentPadding = PaddingValues(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 8.dp,
+                        bottom = 88.dp // Space for FAB
+                    ),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(filteredItems, key = { it.id }) { item ->
+                        ProductCard(
+                            item = item,
+                            onDelete = { itemToDelete = item }
+                        )
+                    }
+                }
             }
         }
-    ) { padding ->
-        if (filteredItems.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Default.Inventory2,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = if (searchQuery.isEmpty()) "Your inventory is empty" else "No matching products found",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                }
-            }
-        } else {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
-                contentPadding = PaddingValues(
-                    start = 16.dp,
-                    end = 16.dp,
-                    top = 8.dp,
-                    bottom = 88.dp // Space for FAB
-                ),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(padding)
-            ) {
-                items(filteredItems, key = { it.id }) { item ->
-                    ProductCard(
-                        item = item,
-                        onDelete = { itemToDelete = item }
-                    )
-                }
-            }
+
+        FloatingActionButton(
+            onClick = { showAddDialog = true },
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Add Product")
         }
     }
 

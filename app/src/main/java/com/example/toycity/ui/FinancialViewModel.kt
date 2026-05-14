@@ -11,8 +11,14 @@ import com.example.toycity.data.Loan
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
+import com.example.toycity.data.LogRepository
+import com.example.toycity.data.UserLog
+import com.google.firebase.auth.FirebaseAuth
+
 class FinancialViewModel : ViewModel() {
     private val repository = FinancialRepository()
+    private val logRepository = LogRepository()
+    private val auth = FirebaseAuth.getInstance()
     private val _uiState = MutableStateFlow(FinancialRecord())
     val uiState: StateFlow<FinancialRecord> = _uiState.asStateFlow()
 
@@ -138,34 +144,21 @@ class FinancialViewModel : ViewModel() {
         }
     }
 
-    fun updateExpenseCategory(category: String, amount: Double) {
-        _uiState.update { state ->
-            val updatedCategories = state.expenseCategories.toMutableMap()
-            if (amount == 0.0) updatedCategories.remove(category)
-            else updatedCategories[category] = amount
-            state.copy(expenseCategories = updatedCategories)
-        }
-    }
-
-    fun addCustomCategory(category: String) {
-        _uiState.update { state ->
-            if (state.customCategories.contains(category)) state
-            else state.copy(customCategories = state.customCategories + category)
-        }
-        saveData()
-    }
-
-    fun removeCustomCategory(category: String) {
-        _uiState.update { state ->
-            state.copy(customCategories = state.customCategories - category)
-        }
-        saveData()
-    }
-
     fun addInventoryItem(item: InventoryItem) {
         _uiState.update { state ->
             val updatedItems = state.inventoryData.items + item
             state.copy(inventoryData = state.inventoryData.copy(items = updatedItems))
+        }
+        viewModelScope.launch {
+            logRepository.addLog(
+                UserLog(
+                    userId = auth.currentUser?.uid ?: "",
+                    userEmail = auth.currentUser?.email ?: "",
+                    action = "Add Product",
+                    details = "Added product: ${item.name} (Qty: ${item.quantity})",
+                    timestamp = System.currentTimeMillis()
+                )
+            )
         }
     }
 
@@ -176,16 +169,40 @@ class FinancialViewModel : ViewModel() {
             }
             state.copy(inventoryData = state.inventoryData.copy(items = updatedItems))
         }
+        viewModelScope.launch {
+            logRepository.addLog(
+                UserLog(
+                    userId = auth.currentUser?.uid ?: "",
+                    userEmail = auth.currentUser?.email ?: "",
+                    action = "Edit Product",
+                    details = "Updated product: ${updatedItem.name}",
+                    timestamp = System.currentTimeMillis()
+                )
+            )
+        }
     }
 
     fun deleteInventoryItem(itemId: String) {
+        val itemName = _uiState.value.inventoryData.items.find { it.id == itemId }?.name ?: itemId
         _uiState.update { state ->
             val updatedItems = state.inventoryData.items.filter { it.id != itemId }
             state.copy(inventoryData = state.inventoryData.copy(items = updatedItems))
         }
+        viewModelScope.launch {
+            logRepository.addLog(
+                UserLog(
+                    userId = auth.currentUser?.uid ?: "",
+                    userEmail = auth.currentUser?.email ?: "",
+                    action = "Delete Product",
+                    details = "Deleted product: $itemName",
+                    timestamp = System.currentTimeMillis()
+                )
+            )
+        }
     }
 
     fun recordSale(items: List<Pair<InventoryItem, Int>>, customerName: String = "Walk-in Customer") {
+        var totalSaleAmountInternal = 0.0
         _uiState.update { state ->
             var totalSaleAmount = 0.0
             var totalCogsIncrement = 0.0
@@ -216,6 +233,8 @@ class FinancialViewModel : ViewModel() {
                 }
             }.toMutableList()
 
+            totalSaleAmountInternal = totalSaleAmount
+
             val newSale = com.example.toycity.data.Sale(
                 id = java.util.UUID.randomUUID().toString(),
                 timestamp = System.currentTimeMillis(),
@@ -230,7 +249,27 @@ class FinancialViewModel : ViewModel() {
                     items = updatedItems,
                     cogs = state.inventoryData.cogs + totalCogsIncrement
                 ),
-                sales = state.sales + newSale
+                sales = state.sales + newSale,
+                cashTransactions = state.cashTransactions + com.example.toycity.data.CashTransaction(
+                    id = java.util.UUID.randomUUID().toString(),
+                    amount = totalSaleAmount,
+                    note = "Sale to $customerName (${newSale.id.takeLast(4)})",
+                    isCashIn = true,
+                    date = newSale.timestamp,
+                    category = "Sale"
+                )
+            )
+        }
+        val itemsSummary = items.joinToString { "${it.first.name} x${it.second}" }
+        viewModelScope.launch {
+            logRepository.addLog(
+                UserLog(
+                    userId = auth.currentUser?.uid ?: "",
+                    userEmail = auth.currentUser?.email ?: "",
+                    action = "Make Sale",
+                    details = "Customer: $customerName, Items: $itemsSummary, Total: $totalSaleAmountInternal",
+                    timestamp = System.currentTimeMillis()
+                )
             )
         }
         triggerManualSave()
@@ -241,12 +280,34 @@ class FinancialViewModel : ViewModel() {
             val newLender = Loan(lenderName = name)
             state.copy(loans = state.loans + newLender)
         }
+        viewModelScope.launch {
+            logRepository.addLog(
+                UserLog(
+                    userId = auth.currentUser?.uid ?: "",
+                    userEmail = auth.currentUser?.email ?: "",
+                    action = "Add Lender",
+                    details = "Added new lender: $name",
+                    timestamp = System.currentTimeMillis()
+                )
+            )
+        }
         triggerManualSave()
     }
 
     fun deleteLender(name: String) {
         _uiState.update { state ->
             state.copy(loans = state.loans.filter { it.lenderName != name })
+        }
+        viewModelScope.launch {
+            logRepository.addLog(
+                UserLog(
+                    userId = auth.currentUser?.uid ?: "",
+                    userEmail = auth.currentUser?.email ?: "",
+                    action = "Delete Lender",
+                    details = "Removed lender: $name",
+                    timestamp = System.currentTimeMillis()
+                )
+            )
         }
         triggerManualSave()
     }
@@ -295,15 +356,26 @@ class FinancialViewModel : ViewModel() {
     }
 
     fun resetMonthlyLedger() {
+        val monthId = _uiState.value.id
         _uiState.update { state ->
             state.copy(
                 startingCash = 0.0,
                 totalSales = 0.0,
                 operatingExpenses = 0.0,
-                expenseCategories = emptyMap(),
                 sales = emptyList(),
                 cashTransactions = emptyList(),
                 inventoryData = state.inventoryData.copy(restockInvestment = 0.0, cogs = 0.0)
+            )
+        }
+        viewModelScope.launch {
+            logRepository.addLog(
+                UserLog(
+                    userId = auth.currentUser?.uid ?: "",
+                    userEmail = auth.currentUser?.email ?: "",
+                    action = "Reset Ledger",
+                    details = "Completely reset monthly ledger for $monthId",
+                    timestamp = System.currentTimeMillis()
+                )
             )
         }
         triggerManualSave()
@@ -320,10 +392,6 @@ class FinancialViewModel : ViewModel() {
 
     fun updateOperatingExpenses(value: Double) {
         _uiState.update { it.copy(operatingExpenses = value) }
-    }
-
-    fun updateCustomerReceivables(value: Double) {
-        _uiState.update { it.copy(customerReceivables = value) }
     }
 
     fun updateRestockInvestment(value: Double) {
@@ -350,6 +418,11 @@ class FinancialViewModel : ViewModel() {
             }
             state.copy(loans = updatedLoans)
         }
+    }
+
+    fun updateCustomerReceivables(value: Double) {
+        _uiState.update { it.copy(customerReceivables = value) }
+        triggerManualSave()
     }
 
     fun addCashTransaction(amount: Double, note: String, isCashIn: Boolean, date: Long, category: String = "Operational", productId: String? = null) {
@@ -601,13 +674,19 @@ class FinancialViewModel : ViewModel() {
                 }
             }
 
+            val saleSuffix = saleId.takeLast(4)
+            val updatedCashTransactions = state.cashTransactions.filterNot { 
+                it.isCashIn && it.category == "Sale" && it.note.contains("($saleSuffix)") 
+            }
+
             state.copy(
                 totalSales = newTotalSales,
                 sales = state.sales.filter { it.id != saleId },
                 inventoryData = state.inventoryData.copy(
                     items = updatedInventoryItems,
                     cogs = (state.inventoryData.cogs - cogsToDeduct).coerceAtLeast(0.0)
-                )
+                ),
+                cashTransactions = updatedCashTransactions
             )
         }
         triggerManualSave()
@@ -645,6 +724,12 @@ class FinancialViewModel : ViewModel() {
             }
 
             val finalSale = updatedSale.copy(totalAmount = newTotalAmount)
+            val saleSuffix = updatedSale.id.takeLast(4)
+            val updatedCashTransactions = state.cashTransactions.map { tx ->
+                if (tx.isCashIn && tx.category == "Sale" && tx.note.contains("($saleSuffix)")) {
+                    tx.copy(amount = newTotalAmount)
+                } else tx
+            }
 
             state.copy(
                 totalSales = state.totalSales - oldSale.totalAmount + newTotalAmount,
@@ -652,7 +737,8 @@ class FinancialViewModel : ViewModel() {
                 inventoryData = state.inventoryData.copy(
                     items = updatedInventoryItems,
                     cogs = state.inventoryData.cogs - cogsToRevert + newCogs
-                )
+                ),
+                cashTransactions = updatedCashTransactions
             )
         }
         triggerManualSave()
@@ -695,13 +781,27 @@ class FinancialViewModel : ViewModel() {
                 state.sales.map { if (it.id == saleId) updatedSale else it }
             }
 
+            val saleSuffix = saleId.takeLast(4)
+            val updatedCashTransactions = if (updatedSaleItems.isEmpty()) {
+                state.cashTransactions.filterNot { 
+                    it.isCashIn && it.category == "Sale" && it.note.contains("($saleSuffix)") 
+                }
+            } else {
+                state.cashTransactions.map { tx ->
+                    if (tx.isCashIn && tx.category == "Sale" && tx.note.contains("($saleSuffix)")) {
+                        tx.copy(amount = updatedSale.totalAmount)
+                    } else tx
+                }
+            }
+
             state.copy(
                 totalSales = (state.totalSales - amountToDeduct).coerceAtLeast(0.0),
                 sales = updatedSales,
                 inventoryData = state.inventoryData.copy(
                     items = updatedInventoryItems,
                     cogs = (state.inventoryData.cogs - cogsToDeduct).coerceAtLeast(0.0)
-                )
+                ),
+                cashTransactions = updatedCashTransactions
             )
         }
         triggerManualSave()

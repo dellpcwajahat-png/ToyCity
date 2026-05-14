@@ -51,7 +51,7 @@ fun LoginScreen(
         }
     }
 
-    if (user != null) {
+    user?.let {
         onLoginSuccess()
     }
 

@@ -186,15 +186,26 @@ object PdfGenerator {
         }
     }
 
-    fun generateReceipt(context: Context, sale: com.example.toycity.data.Sale, pageSize58mm: Boolean) {
+    fun generateReceipt(
+        context: Context, 
+        sale: com.example.toycity.data.Sale, 
+        pageSize58mm: Boolean,
+        userId: String? = null,
+        userEmail: String? = null
+    ) {
         val fileName = "Receipt_${sale.id.takeLast(6)}_${System.currentTimeMillis()}.pdf"
-        val settings = SecurityManager.getReceiptSettings(context)
+        val settings = SecurityManager.getReceiptSettings(context, userId)
         val bizName = settings["name"]?.takeIf { it.isNotBlank() } ?: "TOY CITY"
         val bizAddress = settings["address"] ?: ""
         val bizPhone = settings["phone"] ?: ""
         val ntnNo = settings["ntnNo"] ?: ""
-        val salesPerson = settings["salesPerson"] ?: ""
-        val thankYouNote = settings["note"] ?: "Thank you for shopping at Toy City!"
+        var salesPerson = settings["salesPerson"] ?: ""
+        
+        if (salesPerson.isBlank() && !userEmail.isNullOrBlank()) {
+            salesPerson = userEmail
+        }
+
+        val thankYouNote = settings["note"] ?: "Thank you for shopping with us"
 
         try {
             val outputStream: OutputStream?

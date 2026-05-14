@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.toycity.data.InventoryItem
 import com.example.toycity.ui.FinancialViewModel
-import com.example.toycity.ui.components.ScreenHeader
 import com.example.toycity.utils.Formatter
 
 @Composable
@@ -50,8 +49,6 @@ fun CounterScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            ScreenHeader(title = "Point of Sale")
-            
             Row(modifier = Modifier.fillMaxSize()) {
                 // Left Side: Inventory & Search
                 Column(modifier = Modifier.weight(1.2f)) {

@@ -31,7 +31,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.toycity.data.Sale
 import com.example.toycity.ui.FinancialViewModel
-import com.example.toycity.ui.components.ScreenHeader
 import com.example.toycity.utils.Formatter
 import com.example.toycity.utils.PdfGenerator
 import java.util.*
@@ -82,8 +81,6 @@ fun FinanceScreen(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            ScreenHeader(title = "Financial Ledger")
-
             Column(
                 modifier = Modifier
                     .fillMaxSize()

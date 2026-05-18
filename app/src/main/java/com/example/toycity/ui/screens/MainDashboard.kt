@@ -105,32 +105,33 @@ fun MainDashboard(
                 drawerShape = RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp)
             ) {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    // Drawer header with gradient background
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(
                                 Brush.verticalGradient(
                                     colors = listOf(
-                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-                                        MaterialTheme.colorScheme.surface
+                                        MaterialTheme.colorScheme.primary,
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
                                     )
                                 )
                             )
-                            .padding(horizontal = 24.dp, vertical = 32.dp)
+                            .padding(horizontal = 24.dp, vertical = 36.dp)
                     ) {
                         Column {
                             Surface(
                                 modifier = Modifier.size(64.dp),
                                 shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primary,
-                                shadowElevation = 4.dp
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f),
+                                shadowElevation = 0.dp
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Text(
                                         text = (displayName.takeIf { it.isNotBlank() } ?: user?.email ?: "U").take(1).uppercase(),
                                         style = MaterialTheme.typography.headlineMedium,
                                         color = MaterialTheme.colorScheme.onPrimary,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.Black
                                     )
                                 }
                             }
@@ -138,24 +139,26 @@ fun MainDashboard(
                             Text(
                                 text = displayName.ifBlank { "Toy City User" },
                                 style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimary
                             )
                             Text(
                                 text = user?.email ?: "Guest Account",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f)
                             )
                         }
                     }
 
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     Text(
-                        "MANAGEMENT & INSIGHTS",
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                        "MANAGEMENT",
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.2.sp
+                        letterSpacing = 1.5.sp
                     )
                     
                     NavigationDrawerItem(
@@ -306,8 +309,8 @@ fun MainDashboard(
                         Text(
                             title,
                             style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.primary
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     },
                     navigationIcon = {
@@ -354,41 +357,76 @@ fun MainDashboard(
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.surface,
-                        titleContentColor = MaterialTheme.colorScheme.onSurface
+                        titleContentColor = MaterialTheme.colorScheme.onSurface,
+                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+                        actionIconContentColor = MaterialTheme.colorScheme.onSurface
                     )
                 )
             },
             bottomBar = {
-                NavigationBar {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 4.dp
+                ) {
                     NavigationBarItem(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
-                        label = { Text("Dashboard") },
-                        icon = { Icon(Icons.Default.Home, contentDescription = null) }
+                        label = { Text("Home", style = MaterialTheme.typography.labelSmall) },
+                        icon = {
+                            Icon(
+                                if (selectedTab == 0) Icons.Default.Home else Icons.Default.Home,
+                                contentDescription = null
+                            )
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                        )
                     )
                     NavigationBarItem(
                         selected = selectedTab == 3,
                         onClick = { selectedTab = 3 },
-                        label = { Text("Products") },
-                        icon = { Icon(Icons.Default.Storage, contentDescription = null) }
+                        label = { Text("Products", style = MaterialTheme.typography.labelSmall) },
+                        icon = { Icon(Icons.Default.Inventory2, contentDescription = null) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                        )
                     )
                     NavigationBarItem(
                         selected = selectedTab == 8,
                         onClick = { selectedTab = 8 },
-                        label = { Text("POS") },
-                        icon = { Icon(Icons.Default.PointOfSale, contentDescription = null) }
+                        label = { Text("POS", style = MaterialTheme.typography.labelSmall) },
+                        icon = { Icon(Icons.Default.PointOfSale, contentDescription = null) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                        )
                     )
                     NavigationBarItem(
                         selected = selectedTab == 10,
                         onClick = { selectedTab = 10 },
-                        label = { Text("Ledger") },
-                        icon = { Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null) }
+                        label = { Text("Ledger", style = MaterialTheme.typography.labelSmall) },
+                        icon = { Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                        )
                     )
                     NavigationBarItem(
                         selected = selectedTab == 9,
                         onClick = { selectedTab = 9 },
-                        label = { Text("Settings") },
-                        icon = { Icon(Icons.Default.Settings, contentDescription = null) }
+                        label = { Text("Settings", style = MaterialTheme.typography.labelSmall) },
+                        icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                        )
                     )
                 }
             }

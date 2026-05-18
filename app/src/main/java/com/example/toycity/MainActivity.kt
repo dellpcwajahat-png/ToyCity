@@ -124,89 +124,102 @@ fun PinEntryScreen(onPinEntered: (String) -> Unit) {
 
     LaunchedEffect(pin) {
         if (pin.length == 4) {
-            delay(500)
+            delay(300)
+            onPinEntered(pin)
+            delay(200)
             pin = ""
         }
     }
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
+    val bgGradient = androidx.compose.ui.graphics.Brush.verticalGradient(
+        colors = listOf(
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+            MaterialTheme.colorScheme.background,
+            MaterialTheme.colorScheme.background,
+        )
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(bgGradient)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(horizontal = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Header Section
+            // ── Header ──────────────────────────────────────────────────────
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(top = 64.dp)
+                modifier = Modifier.padding(top = 80.dp)
             ) {
                 Surface(
-                    modifier = Modifier.size(80.dp),
+                    modifier = Modifier.size(88.dp),
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             Icons.Default.Lock,
                             contentDescription = null,
-                            modifier = Modifier.size(36.dp),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            modifier = Modifier.size(40.dp),
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(28.dp))
                 Text(
                     text = "Welcome Back",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
                 )
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = "Enter your PIN to unlock Toy City",
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            // PIN Dots
+            // ── PIN Dots ─────────────────────────────────────────────────────
             Row(
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 repeat(4) { index ->
                     val isFilled = index < pin.length
-                    val dotSize by animateDpAsState(targetValue = if (isFilled) 18.dp else 14.dp, label = "dotSize")
+                    val dotSize by animateDpAsState(
+                        targetValue = if (isFilled) 20.dp else 14.dp,
+                        label = "dotSize"
+                    )
                     val dotColor by animateColorAsState(
-                        targetValue = if (isFilled) MaterialTheme.colorScheme.primary 
+                        targetValue = if (isFilled) MaterialTheme.colorScheme.primary
                                      else MaterialTheme.colorScheme.outlineVariant,
                         label = "dotColor"
                     )
 
-                    Box(
-                        modifier = Modifier.size(24.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
+                    Box(modifier = Modifier.size(28.dp), contentAlignment = Alignment.Center) {
                         Surface(
                             modifier = Modifier.size(dotSize),
                             shape = CircleShape,
                             color = dotColor,
-                            border = if (!isFilled) BorderStroke(1.dp, MaterialTheme.colorScheme.outline) else null
+                            border = if (!isFilled) BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)) else null
                         ) {}
                     }
                 }
             }
 
-            // Numeric Keypad
+            // ── Numeric Keypad ───────────────────────────────────────────────
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(bottom = 48.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 val keys = listOf(
                     listOf("1", "2", "3"),
@@ -232,9 +245,6 @@ fun PinEntryScreen(onPinEntered: (String) -> Unit) {
                                         } else {
                                             if (pin.length < 4) {
                                                 pin += key
-                                                if (pin.length == 4) {
-                                                    onPinEntered(pin)
-                                                }
                                             }
                                         }
                                     }
@@ -257,19 +267,22 @@ fun KeypadButton(
         onClick = onClick,
         modifier = Modifier.size(80.dp),
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
     ) {
         Box(contentAlignment = Alignment.Center) {
             if (content == "backspace") {
                 Icon(
                     Icons.AutoMirrored.Filled.Backspace,
                     contentDescription = "backspace",
-                    tint = MaterialTheme.colorScheme.onSurface
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(22.dp)
                 )
             } else {
                 Text(
                     text = content,
                     style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }

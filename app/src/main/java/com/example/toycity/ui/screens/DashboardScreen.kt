@@ -1,11 +1,8 @@
 package com.example.toycity.ui.screens
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -19,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -32,10 +30,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.toycity.data.FinancialRecord
 import com.example.toycity.ui.FinancialViewModel
 import com.example.toycity.utils.Formatter
-import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
@@ -218,13 +214,33 @@ fun DashboardScreen(
         // Sales Trend Graph
         SalesGraphCard(data = metrics.graphData)
 
-        Text(
-            text = "Business Vitals",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.ExtraBold,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(top = 12.dp, start = 4.dp)
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp, start = 4.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "Business Vitals",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+            ) {
+                Text(
+                    text = "Live",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
+                )
+            }
+        }
 
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             // Row 1: Cash in Drawer, Receivables, Debt
@@ -344,39 +360,38 @@ fun SummaryBox(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
-        color = containerColor.copy(alpha = 0.9f),
-        tonalElevation = 2.dp,
-        border = BorderStroke(1.dp, contentColor.copy(alpha = 0.1f))
+        shape = RoundedCornerShape(20.dp),
+        color = containerColor,
+        border = BorderStroke(1.dp, contentColor.copy(alpha = 0.08f))
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
-                    .background(contentColor.copy(alpha = 0.15f), CircleShape),
+                    .size(32.dp)
+                    .background(contentColor.copy(alpha = 0.12f), RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
                     tint = contentColor,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(17.dp)
                 )
             }
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Medium,
-                    color = contentColor.copy(alpha = 0.8f),
+                    color = contentColor.copy(alpha = 0.75f),
                     maxLines = 1
                 )
                 Text(
                     text = value,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.ExtraBold,
                     color = contentColor,
                     maxLines = 1,
@@ -395,20 +410,48 @@ fun MainPerformanceCard(
     cashInDrawer: Double
 ) {
     val netProfit = profit - expenses
-    
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(32.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primary
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    val isPositive = netProfit >= 0
+
+    val heroGradient = Brush.linearGradient(
+        colors = listOf(
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.secondary,
+        )
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(12.dp, RoundedCornerShape(32.dp))
+            .clip(RoundedCornerShape(32.dp))
+            .background(heroGradient)
     ) {
+        // Subtle decorative circle in background
+        Box(
+            modifier = Modifier
+                .size(220.dp)
+                .offset(x = 160.dp, y = (-60).dp)
+                .background(
+                    Color.White.copy(alpha = 0.06f),
+                    CircleShape
+                )
+        )
+        Box(
+            modifier = Modifier
+                .size(140.dp)
+                .offset(x = (-40).dp, y = 80.dp)
+                .background(
+                    Color.White.copy(alpha = 0.04f),
+                    CircleShape
+                )
+        )
+
         Column(
             modifier = Modifier
                 .padding(24.dp)
                 .fillMaxWidth()
         ) {
+            // Header row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -416,86 +459,139 @@ fun MainPerformanceCard(
             ) {
                 Column {
                     Text(
-                        text = "Today's Sale",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                        text = "TODAY'S REVENUE",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White.copy(alpha = 0.75f),
+                        letterSpacing = 1.2.sp
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = Formatter.formatCurrency(sales),
                         style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onPrimary
+                        fontWeight = FontWeight.Black,
+                        color = Color.White
                     )
                 }
-                
+
                 Surface(
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f),
-                    shape = CircleShape
+                    color = Color.White.copy(alpha = 0.18f),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Payments,
                         contentDescription = null,
                         modifier = Modifier.padding(12.dp).size(28.dp),
-                        tint = MaterialTheme.colorScheme.onPrimary
+                        tint = Color.White
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
-            
+
+            // Metric chips row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Net Profit Section
-                PerformanceMetricItem(
+                MetricChip(
                     modifier = Modifier.weight(1f),
                     label = "Net Profit",
                     value = Formatter.formatCurrency(netProfit),
                     icon = Icons.AutoMirrored.Filled.TrendingUp,
-                    color = if (netProfit >= 0) Color(0xFF81C784) else Color(0xFFE57373)
+                    chipColor = if (isPositive) Color(0xFF34D399).copy(alpha = 0.22f) else Color(0xFFF87171).copy(alpha = 0.22f),
+                    valueColor = if (isPositive) Color(0xFFA7F3D0) else Color(0xFFFCA5A5)
                 )
-                
-                // Expenses Section
-                PerformanceMetricItem(
+                MetricChip(
                     modifier = Modifier.weight(1f),
-                    label = "Today Exp.",
+                    label = "Expenses",
                     value = Formatter.formatCurrency(expenses),
                     icon = Icons.AutoMirrored.Filled.TrendingDown,
-                    color = Color(0xFFE57373)
+                    chipColor = Color(0xFFF87171).copy(alpha = 0.18f),
+                    valueColor = Color(0xFFFCA5A5)
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Cash Drawer Highlight
+            // Cash Drawer strip
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.15f),
+                color = Color.White.copy(alpha = 0.14f),
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Icon(Icons.Default.AccountBalanceWallet, null, tint = MaterialTheme.colorScheme.onPrimary)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.AccountBalanceWallet,
+                            null,
+                            tint = Color.White.copy(alpha = 0.9f),
+                            modifier = Modifier.size(18.dp)
+                        )
                         Text(
                             "Cash in Drawer",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onPrimary
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Color.White.copy(alpha = 0.9f)
                         )
                     }
                     Text(
                         Formatter.formatCurrency(cashInDrawer),
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimary
+                        color = Color.White
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun MetricChip(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    chipColor: Color,
+    valueColor: Color
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = chipColor
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = valueColor,
+                    modifier = Modifier.size(14.dp)
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.7f)
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = valueColor,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -523,13 +619,13 @@ fun PerformanceMetricItem(
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f)
+                color = Color.White.copy(alpha = 0.6f)
             )
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimary
+                color = Color.White
             )
         }
     }
@@ -541,21 +637,39 @@ fun SalesGraphCard(data: List<Float>) {
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
     val outlineVariant = MaterialTheme.colorScheme.outlineVariant
     val primary = MaterialTheme.colorScheme.primary
-    
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = BorderStroke(1.dp, outlineVariant)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, outlineVariant.copy(alpha = 0.6f))
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Text(
-                text = "Last 7 Days Sales Trend",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.secondary
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "7-Day Sales Trend",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                ) {
+                    Text(
+                        text = "Revenue",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(24.dp))
             
             val maxValue = (data.maxOrNull() ?: 0f).let { if (it < 1000) 1000f else it * 1.2f }
@@ -676,19 +790,20 @@ fun DashboardMetricItem(
     profit: Double,
     icon: androidx.compose.ui.graphics.vector.ImageVector
 ) {
-    ElevatedCard(
+    Card(
         modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.elevatedCardColors(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
-                .padding(12.dp)
+                .padding(14.dp)
                 .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -698,24 +813,46 @@ fun DashboardMetricItem(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Icon(icon, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                ) {
+                    Icon(
+                        icon,
+                        null,
+                        modifier = Modifier.padding(6.dp).size(14.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
-            
-            Column {
+
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = Formatter.formatCurrency(sales),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.ExtraBold
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-                Text(
-                    text = "Profit: ${Formatter.formatCurrency(profit)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (profit >= 0) Color(0xFF2E7D32) else Color(0xFFC62828),
-                    fontWeight = FontWeight.Medium
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        if (profit >= 0) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
+                        contentDescription = null,
+                        modifier = Modifier.size(12.dp),
+                        tint = if (profit >= 0) Color(0xFF059669) else Color(0xFFDC2626)
+                    )
+                    Text(
+                        text = Formatter.formatCurrency(profit),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (profit >= 0) Color(0xFF059669) else Color(0xFFDC2626),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
     }
